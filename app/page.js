@@ -1,14 +1,23 @@
 'use client'
-import { useState } from 'react'
-import Image from 'next/image'
+import { useState, useEffect } from 'react'
 
 export default function Home() {
   const [status, setStatus] = useState('')
-  const [loading, setLoading] = useState(false)
+  const [countries, setCountries] = useState([])
+  const [tiers, setTiers] = useState([])
+  const [sizes, setSizes] = useState([])
+
+  useEffect(() => {
+    async function fetchOptions() {
+      setCountries(["Canada", "United States", "France", "Germany", "United Kingdom"])
+      setTiers(["Tier 1 - Strategic Uplift", "Tier 2 - National Reform", "Tier 3 - Continental Dominance"])
+      setSizes(["1–10", "11–50", "51–200", "201–500", "501–1000", "1000+"])
+    }
+    fetchOptions()
+  }, [])
 
   const handleSubmit = async (e) => {
     e.preventDefault()
-    setLoading(true)
 
     const payload = {
       organization: e.target.organization.value,
@@ -28,132 +37,95 @@ export default function Home() {
       body: JSON.stringify(payload)
     })
 
-    setLoading(false)
-    setStatus(res.ok ? '✅ Reform request submitted!' : '❌ There was an error.')
+    setStatus(res.ok ? '✅ Reform report submitted!' : '❌ Error sending data')
   }
 
   const inputStyle = {
     width: '100%',
     padding: '0.75rem',
-    marginBottom: '1.5rem',
+    marginBottom: '1rem',
     borderRadius: '6px',
     border: '1px solid #ccc',
-    fontSize: '1rem',
-    backgroundColor: '#fff',
-    color: '#000'
+    fontSize: '1rem'
   }
 
   const labelStyle = {
-    marginBottom: '0.5rem',
-    display: 'block',
     fontWeight: 'bold',
-    color: '#0A1320'
+    marginBottom: '0.25rem',
+    display: 'block',
+    color: '#0a2447'
   }
 
   return (
     <main style={{
-      backgroundColor: '#ffffff',
-      minHeight: '100vh',
       padding: '2rem',
-      fontFamily: 'Arial, sans-serif',
-      color: '#0A1320',
-      display: 'flex',
-      justifyContent: 'center'
+      fontFamily: 'Arial',
+      backgroundColor: '#ffffff',
+      color: '#0a2447',
+      maxWidth: '600px',
+      margin: 'auto'
     }}>
-      <div style={{ width: '100%', maxWidth: '720px' }}>
-        <div style={{ marginBottom: '2rem', display: 'flex', alignItems: 'center' }}>
-          <Image src="/logo.png" alt="Sovereign OPS Logo" width={180} height={48} />
-        </div>
+      <img src="/logo.png" alt="Sovereign OPS Logo" style={{ width: '160px', marginBottom: '2rem' }} />
+      <h1 style={{ marginBottom: '2rem' }}>Empire Reform Request Form</h1>
+      <form onSubmit={handleSubmit}>
+        <label style={labelStyle}>Organization Name</label>
+        <input name="organization" placeholder="Organization Name" style={inputStyle} required />
 
-        <h1 style={{ fontSize: '2rem', marginBottom: '2rem' }}>Empire Reform Request Form</h1>
+        <label style={labelStyle}>Country</label>
+        <select name="country" style={inputStyle} required>
+          <option value="">Select country</option>
+          {countries.map(c => <option key={c}>{c}</option>)}
+        </select>
 
-        <form onSubmit={handleSubmit}>
-          <label style={labelStyle}>Organization Name</label>
-          <input name="organization" placeholder="Organization Name" required style={inputStyle} />
+        <label style={labelStyle}>Tier</label>
+        <select name="tier" style={inputStyle} required>
+          <option value="">Select Tier</option>
+          {tiers.map(t => <option key={t}>{t}</option>)}
+        </select>
 
-          <label style={labelStyle}>Country</label>
-          <select name="country" required style={inputStyle}>
-            <option value="">Select country</option>
-            {/* This should be dynamically loaded from Airtable Countries table */}
-            <option value="Canada">Canada</option>
-            <option value="United States">United States</option>
-            <option value="France">France</option>
-            <option value="Germany">Germany</option>
-          </select>
+        <label style={labelStyle}>Company Size</label>
+        <select name="companySize" style={inputStyle} required>
+          <option value="">Select Company Size</option>
+          {sizes.map(s => <option key={s}>{s}</option>)}
+        </select>
 
-          <label style={labelStyle}>Tier</label>
-          <select name="tier" required style={inputStyle}>
-            <option value="">Select Tier</option>
-            {/* Dynamic options can be fetched from Airtable Tiers */}
-            <option value="Tier 1 – Core Optimization">Tier 1 – Core Optimization</option>
-            <option value="Tier 2 – System Reform">Tier 2 – System Reform</option>
-            <option value="Tier 3 – Continental Dominance">Tier 3 – Continental Dominance</option>
-          </select>
+        <label style={labelStyle}>Strategic Goal</label>
+        <input name="goal" placeholder="E.g. Cut costs, improve efficiency" style={inputStyle} required />
 
-          <label style={labelStyle}>Company Size</label>
-          <select name="companySize" required style={inputStyle}>
-            <option value="">Select Company Size</option>
-            <option value="1–10">1–10</option>
-            <option value="11–50">11–50</option>
-            <option value="51–200">51–200</option>
-            <option value="201–1000">201–1000</option>
-            <option value="1000+">1000+</option>
-          </select>
+        <label style={labelStyle}>Desired Outcome</label>
+        <input name="desiredOutcome" placeholder="What results are you seeking?" style={inputStyle} required />
 
-          <label style={labelStyle}>Strategic Goal</label>
-          <input name="goal" placeholder="E.g. Cut costs, improve efficiency" required style={inputStyle} />
+        <label style={labelStyle}>Cost Savings Goal ($)</label>
+        <input name="cost" type="number" placeholder="1000000" style={inputStyle} required />
 
-          <label style={labelStyle}>Desired Outcome</label>
-          <input name="desiredOutcome" placeholder="What results are you seeking?" required style={inputStyle} />
+        <label style={labelStyle}>Implementation Time Frame</label>
+        <select name="timeFrame" style={inputStyle} required>
+          <option value="">Select Time Frame</option>
+          {[
+            "1 month","2 months","3 months","4 months","5 months","6 months","7 months","8 months","9 months",
+            "10 months","11 months","1 year","1.5 years","2 years","2.5 years","3 years","3.5 years",
+            "4 years","4.5 years","5 years","6 years","7 years","8 years","9 years","10 years"
+          ].map(opt => <option key={opt}>{opt}</option>)}
+        </select>
 
-          <label style={labelStyle}>Cost Savings Goal ($)</label>
-          <input name="cost" type="number" placeholder="e.g. 1000000" required style={inputStyle} />
+        <label style={labelStyle}>Generated Reform Report</label>
+        <textarea name="report" placeholder="Paste the generated content here..." rows={6} style={inputStyle} required />
 
-          <label style={labelStyle}>Implementation Time Frame</label>
-          <select name="timeFrame" required style={inputStyle}>
-            <option value="">Select Time Frame</option>
-            {[
-              '1 month', '2 months', '3 months', '4 months', '5 months', '6 months',
-              '7 months', '8 months', '9 months', '10 months', '11 months',
-              '1 year', '1.5 years', '2 years', '2.5 years', '3 years', '3.5 years',
-              '4 years', '4.5 years', '5 years', '6 years', '7 years',
-              '8 years', '9 years', '10 years'
-            ].map(opt => <option key={opt} value={opt}>{opt}</option>)}
-          </select>
-
-          <label style={labelStyle}>Generated Reform Report</label>
-          <textarea
-            name="report"
-            placeholder="Paste your 5,000-word reform output here"
-            required
-            style={{ ...inputStyle, minHeight: '180px' }}
-          />
-
-          <button
-            type="submit"
-            style={{
-              backgroundColor: '#0A1320',
-              color: '#fff',
-              padding: '1rem 2rem',
-              border: 'none',
-              borderRadius: '6px',
-              fontSize: '1rem',
-              cursor: 'pointer'
-            }}
-            disabled={loading}
-          >
-            {loading ? 'Submitting...' : 'Generate Report'}
-          </button>
-        </form>
-
-        {status && (
-          <p style={{
-            marginTop: '2rem',
-            fontSize: '1.25rem',
-            color: status.includes('✅') ? 'green' : 'red'
-          }}>{status}</p>
-        )
-      </div>
+        <button type="submit" style={{
+          backgroundColor: '#0a2447',
+          color: 'white',
+          padding: '0.75rem 1.5rem',
+          border: 'none',
+          borderRadius: '5px',
+          cursor: 'pointer',
+          fontSize: '1rem'
+        }}>
+          Generate Report
+        </button>
+      </form>
+      <p style={{ marginTop: '1rem', color: status.includes('✅') ? 'green' : 'red' }}>
+        {status}
+      </p>
     </main>
   )
 }
