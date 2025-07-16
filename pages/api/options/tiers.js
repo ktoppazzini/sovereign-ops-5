@@ -1,6 +1,6 @@
 export default async function handler(req, res) {
   const apiKey = process.env.AIRTABLE_API_KEY;
-  const baseId = 'app66DTFvdxGQKy4l'; // Confirm or update if needed
+  const baseId = 'app66DTFvdxGQKy4I/tbl0f2gCTevjH7CS4'; // Confirm or update if needed
   const tableName = 'Tiers';
 
   try {
