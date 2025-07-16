@@ -1,20 +1,34 @@
 export default async function handler(req, res) {
   const apiKey = process.env.AIRTABLE_API_KEY;
-  const baseId = 'app66DTFvdxGQKy4I/tbl0f2gCTevjH7CS4'; // Confirm or update if needed
+  const baseId = 'app66DTFvdxGQKy4I';
   const tableName = 'Tiers';
 
   try {
-    const response = await fetch(`https://api.airtable.com/v0/${baseId}/${tableName}`, {
+    const url = `https://api.airtable.com/v0/${baseId}/${tableName}`;
+    console.log('-- Fetching Tiers...');
+    console.log('API_URL:', url);
+    console.log('API key present?', Boolean(apiKey));
+
+    const response = await fetch(url, {
       headers: {
         Authorization: `Bearer ${apiKey}`,
       },
     });
 
     const data = await response.json();
-    const tiers = data.records.map((record) => record.fields.Name);
+
+    if (!data.records) {
+      console.error('No records returned:', JSON.stringify(data));
+      return res.status(500).json({ error: 'No records returned from Airtable' });
+    }
+
+    const tiers = data.records
+      .map(record => record.fields['Tier Name'])
+      .filter(Boolean);
+
     res.status(200).json({ options: tiers });
   } catch (error) {
-    console.error(error);
+    console.error('Failed to fetch tiers:', error);
     res.status(500).json({ error: 'Failed to fetch tiers' });
   }
 }
