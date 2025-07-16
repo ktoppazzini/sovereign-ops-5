@@ -12,7 +12,7 @@ export async function GET() {
     });
 
     const data = await res.json();
-    const sizes = data.records.map(record => record.fields.Name);
+    const sizes = data.records.map(record => record.fields['Size Label'])
 
     return new Response(JSON.stringify(sizes), {
       headers: { 'Content-Type': 'application/json' },
