@@ -1,31 +1,30 @@
 export default async function handler(req, res) {
   const apiKey = process.env.AIRTABLE_API_KEY;
   const baseId = 'app66DTFvdxGQKy4I';
-  const tableName = 'Company Sizes';
+  const tableName = 'Countries';
+
+  let countries = [];
+  let offset = null;
 
   try {
-    const url = new URL(`https://api.airtable.com/v0/${baseId}/${tableName}`);
+    do {
+      const url = new URL(`https://api.airtable.com/v0/${baseId}/${tableName}`);
+      if (offset) url.searchParams.append('offset', offset);
 
-    // ✅ TEMPORARY LOGGING FOR DEBUGGING
-    console.log('-- Fetching Company Sizes...');
-    console.log('API_URL:', url.toString());
-    console.log('Airtable API Key present?', Boolean(process.env.AIRTABLE_API_KEY));
+      console.log('-- Fetching Countries...');
+      console.log('API_URL:', url.toString());
+      console.log('API key present?', Boolean(apiKey));
 
-    const response = await fetch(url.toString(), {
-      headers: {
-        Authorization: `Bearer ${apiKey}`,
-      },
-    });
+      const response = await fetch(url.toString(), {
+        headers: { Authorization: `Bearer ${apiKey}` },
+      });
 
-    const data = await response.json();
+      const data = await response.json();
 
-    const sizes = data.records
-      .map(record => record.fields['Size Label']) // ← Make sure this matches exactly in Airtable
-      .filter(Boolean); // Removes undefined/null if any
+      const newCountries = data.records
+        .map(record => record.fields['Country'])
+        .filter(Boolean);
 
-    res.status(200).json({ options: sizes });
-  } catch (error) {
-    console.error('❌ Error fetching company sizes:', error);
-    res.status(500).json({ error: 'Failed to fetch company sizes' });
-  }
-}
+      countries = countries.concat(newCountries);
+      offset = data.offset;
+    } while (of
