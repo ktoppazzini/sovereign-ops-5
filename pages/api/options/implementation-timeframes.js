@@ -1,8 +1,8 @@
 // /pages/api/options/implementation-timeframes.js
 
 export default async function handler(req, res) {
-  const airtableBaseId = 'YOUR_BASE_ID'; // e.g., app66DTFvdxGQKy4I
-  const airtableApiKey = 'YOUR_API_KEY';
+  const airtableBaseId = 'app66DTFvdxGQKy4I/tbl1VJlKIBVhLUVyE'; // e.g., app66DTFvdxGQKy4I
+  const airtableApiKey = 'patmkl2um78ms35Kh.c47387404f9fc5893ce63807df3a92c0b0255c8d1d84bdfdcff257511fdecd84';
   const tableName = 'Reform Requests'; // Or wherever the field lives
   const fieldName = 'Implementation Time Frame';
 
