@@ -5,25 +5,22 @@ export default async function handler(req, res) {
 
   try {
     const url = `https://api.airtable.com/v0/${baseId}/${encodeURIComponent(tableName)}`;
-
-    console.log('-- Fetching Tiers...');
-    console.log('API_URL:', url);
-    console.log('API key present?', Boolean(apiKey));
-
     const response = await fetch(url, {
-      headers: { Authorization: `Bearer ${apiKey}` },
+      headers: {
+        Authorization: `Bearer ${apiKey}`,
+      },
     });
 
     const data = await response.json();
-    console.log('🔍 Airtable response:', JSON.stringify(data, null, 2));
-
-    if (!data.records || !Array.isArray(data.records)) {
-      return res.status(500).json({ error: 'Invalid response from Airtable', details: data });
-    }
 
     const tiers = data.records
-      .map(record => record.fields['Tier Name']) // MUST match Airtable exactly
-      .filter(Boolean);
+      .map(record => record.fields['Tier Name'])
+      .filter(Boolean)
+      .sort((a, b) => {
+        const numA = parseInt(a.match(/\d+/)?.[0] || '0');
+        const numB = parseInt(b.match(/\d+/)?.[0] || '0');
+        return numA - numB;
+      });
 
     res.status(200).json({ options: tiers });
   } catch (error) {
@@ -31,3 +28,4 @@ export default async function handler(req, res) {
     res.status(500).json({ error: 'Server error', details: error.message });
   }
 }
+
