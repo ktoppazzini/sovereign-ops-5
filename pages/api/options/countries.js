@@ -3,6 +3,12 @@ export default async function handler(req, res) {
   const baseId = 'app66DTFvdxGQKy4I';
   const tableName = 'Countries';
 
+
+  
+  console.log('🧾 Airtable response:', JSON.stringify(data, null, 2));
+
+
+  
   let countries = [];
   let offset = null;
 
