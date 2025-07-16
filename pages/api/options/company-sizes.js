@@ -29,3 +29,4 @@ console.log('🧾 Airtable response:', JSON.stringify(data, null, 2));
     res.status(500).json({ error: 'Failed to fetch company sizes' });
   }
 }
+
