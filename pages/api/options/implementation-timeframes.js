@@ -10,6 +10,12 @@ export default async function handler(req, res) {
     console.log('API_URL:', url);
     console.log('API key present?', Boolean(airtableApiKey));
 
+console.log('🧾 Airtable response:', JSON.stringify(data, null, 2));
+
+
+
+    
+
     const response = await fetch(url, {
       headers: {
         Authorization: `Bearer ${airtableApiKey}`,
