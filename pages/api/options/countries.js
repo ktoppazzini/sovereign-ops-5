@@ -1,3 +1,9 @@
+onsole.log('-- Fetching Countries...');  
+console.log('API_URL:', url.toString());  
+console.log('Airtable API Key present?', Boolean(process.env.AIRTABLE_API_KEY));
+
+
+
 export default async function handler(req, res) {
   const apiKey = process.env.AIRTABLE_API_KEY;
   const baseId = 'app66DTFvdxGQKy4I';
