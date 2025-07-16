@@ -1,20 +1,28 @@
-export default async function handler(req, res) {
-  const apiKey = process.env.AIRTABLE_API_KEY;
-  const baseId = 'app66DTFvdxGQKy4l'; // Confirm or update
-  const tableName = 'Company Sizes';
+export async function GET() {
+  const airtableBaseId = 'app66DTFvdxGQKy4I'; // ✅ JUST the base ID
+  const airtableApiKey = process.env.AIRTABLE_API_KEY; // ✅ Reference ENV variable
+  const tableName = 'Company Sizes'; // ✅ Airtable table name
 
   try {
-    const response = await fetch(`https://api.airtable.com/v0/${baseId}/${tableName}`, {
+    const res = await fetch(`https://api.airtable.com/v0/${airtableBaseId}/${encodeURIComponent(tableName)}`, {
       headers: {
-        Authorization: `Bearer ${apiKey}`,
+        Authorization: `Bearer ${airtableApiKey}`,
+        'Content-Type': 'application/json',
       },
     });
 
-    const data = await response.json();
-    const sizes = data.records.map((record) => record.fields.Name);
-    res.status(200).json({ options: sizes });
-  } catch (error) {
-    console.error(error);
-    res.status(500).json({ error: 'Failed to fetch company sizes' });
+    const data = await res.json();
+    const sizes = data.records.map(record => record.fields.Name);
+
+    return new Response(JSON.stringify(sizes), {
+      headers: { 'Content-Type': 'application/json' },
+    });
+  } catch (err) {
+    console.error(err);
+    return new Response(JSON.stringify({ error: 'Failed to fetch company sizes' }), {
+      status: 500,
+      headers: { 'Content-Type': 'application/json' },
+    });
   }
 }
+
