@@ -1,28 +1,32 @@
-export async function GET() {
-  const airtableBaseId = 'app66DTFvdxGQKy4I'; // ✅ JUST the base ID
-  const airtableApiKey = process.env.AIRTABLE_API_KEY; // ✅ Reference ENV variable
-  const tableName = 'Company Sizes'; // ✅ Airtable table name
+export default async function handler(req, res) {
+  const apiKey = process.env.AIRTABLE_API_KEY;
+  const baseId = 'app66DTFvdxGQKy4I';
+  const tableName = 'Countries';
+
+  let countries = [];
+  let offset = null;
 
   try {
-    const res = await fetch(`https://api.airtable.com/v0/${airtableBaseId}/${encodeURIComponent(tableName)}`, {
-      headers: {
-        Authorization: `Bearer ${airtableApiKey}`,
-        'Content-Type': 'application/json',
-      },
-    });
+    do {
+      const url = new URL(`https://api.airtable.com/v0/${baseId}/${tableName}`);
+      if (offset) url.searchParams.append('offset', offset);
 
-    const data = await res.json();
-    const sizes = data.records.map(record => record.fields['Size Label'])
+      const response = await fetch(url.toString(), {
+        headers: {
+          Authorization: `Bearer ${apiKey}`,
+        },
+      });
 
-    return new Response(JSON.stringify(sizes), {
-      headers: { 'Content-Type': 'application/json' },
-    });
-  } catch (err) {
-    console.error(err);
-    return new Response(JSON.stringify({ error: 'Failed to fetch company sizes' }), {
-      status: 500,
-      headers: { 'Content-Type': 'application/json' },
-    });
+      const data = await response.json();
+      const newCountries = data.records.map(record => record.fields['Country']); // ✅ Correct field
+
+      countries = countries.concat(newCountries);
+      offset = data.offset;
+    } while (offset);
+
+    res.status(200).json({ options: countries });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: 'Failed to fetch countries' });
   }
 }
-
