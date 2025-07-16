@@ -3,12 +3,6 @@ export default async function handler(req, res) {
   const baseId = 'app66DTFvdxGQKy4I';
   const tableName = 'Countries';
 
-
-  
-  console.log('🧾 Airtable response:', JSON.stringify(data, null, 2));
-
-
-  
   let countries = [];
   let offset = null;
 
@@ -26,9 +20,14 @@ export default async function handler(req, res) {
       });
 
       const data = await response.json();
+      console.log('🔍 Airtable raw:', JSON.stringify(data, null, 2));
+
+      if (data.error) {
+        return res.status(500).json({ error: 'Airtable error', details: data });
+      }
 
       const newCountries = data.records
-        .map(record => record.fields['Country'])
+        .map(record => record.fields['Country']) // Make sure this matches EXACTLY
         .filter(Boolean);
 
       countries = countries.concat(newCountries);
@@ -38,6 +37,6 @@ export default async function handler(req, res) {
     res.status(200).json({ options: countries });
   } catch (error) {
     console.error('❌ Failed to fetch countries:', error);
-    res.status(500).json({ error: 'Failed to fetch countries' });
+    res.status(500).json({ error: 'Server error', details: error.message });
   }
 }
