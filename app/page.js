@@ -20,11 +20,15 @@ export default function Home() {
         const tiersData = await tierRes.json()
         const sizesData = await sizeRes.json()
 
-        setCountries(countriesData.options || [])
-        setTiers(tiersData.options || [])
-        setSizes(sizesData.options || [])
+        console.log('🌍 countriesData:', countriesData)
+        console.log('🏛 tiersData:', tiersData)
+        console.log('🏢 sizesData:', sizesData)
+
+        setCountries(countriesData.options ?? [])
+        setTiers(tiersData.options ?? [])
+        setSizes(sizesData.options ?? [])
       } catch (error) {
-        console.error('❌ Failed to load dropdown options:', error)
+        console.error('❌ Fetch error in useEffect:', error)
       }
     }
 
@@ -146,4 +150,3 @@ export default function Home() {
     </main>
   )
 }
-
