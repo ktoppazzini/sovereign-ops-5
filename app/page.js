@@ -1,4 +1,3 @@
-
 'use client'
 import { useState, useEffect } from 'react'
 
@@ -10,10 +9,25 @@ export default function Home() {
 
   useEffect(() => {
     async function fetchOptions() {
-      setCountries(["Canada", "United States", "France", "Germany", "United Kingdom"])
-      setTiers(["Tier 1 - Strategic Uplift", "Tier 2 - National Reform", "Tier 3 - Continental Dominance"])
-      setSizes(["1–10", "11–50", "51–200", "201–500", "501–1000", "1000+"])
+      try {
+        const [countryRes, tierRes, sizeRes] = await Promise.all([
+          fetch('/api/options/countries'),
+          fetch('/api/options/tiers'),
+          fetch('/api/options/company-sizes')
+        ])
+
+        const countriesData = await countryRes.json()
+        const tiersData = await tierRes.json()
+        const sizesData = await sizeRes.json()
+
+        setCountries(countriesData.options || [])
+        setTiers(tiersData.options || [])
+        setSizes(sizesData.options || [])
+      } catch (error) {
+        console.error('❌ Failed to load dropdown options:', error)
+      }
     }
+
     fetchOptions()
   }, [])
 
@@ -68,6 +82,7 @@ export default function Home() {
     }}>
       <img src="/logo.png" alt="Sovereign OPS Logo" style={{ width: '160px', marginBottom: '2rem' }} />
       <h1 style={{ marginBottom: '2rem' }}>Empire Reform Request Form</h1>
+
       <form onSubmit={handleSubmit}>
         <label style={labelStyle}>Organization Name</label>
         <input name="organization" placeholder="Organization Name" style={inputStyle} required />
@@ -124,9 +139,11 @@ export default function Home() {
           Generate Report
         </button>
       </form>
+
       <p style={{ marginTop: '1rem', color: status.includes('✅') ? 'green' : 'red' }}>
         {status}
       </p>
     </main>
   )
 }
+
