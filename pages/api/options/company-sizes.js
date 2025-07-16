@@ -4,29 +4,33 @@ export default async function handler(req, res) {
   const tableName = 'Company Sizes';
 
   try {
-    const url = new URL(`https://api.airtable.com/v0/${baseId}/${tableName}`);
-
+    const url = `https://api.airtable.com/v0/${baseId}/${encodeURIComponent(tableName)}`;
     console.log('-- Fetching Company Sizes...');
-    console.log('API_URL:', url.toString());
+    console.log('API_URL:', url);
     console.log('API key present?', Boolean(apiKey));
 
-console.log('🧾 Airtable response:', JSON.stringify(data, null, 2));
-    
-
-    const response = await fetch(url.toString(), {
-      headers: { Authorization: `Bearer ${apiKey}` },
+    const response = await fetch(url, {
+      headers: {
+        Authorization: `Bearer ${apiKey}`,
+      },
     });
 
     const data = await response.json();
 
+    console.log('🧾 Full Airtable Response:', JSON.stringify(data, null, 2));
+
+    if (!data.records) {
+      return res.status(500).json({ error: 'No records returned', raw: data });
+    }
+
     const sizes = data.records
-      .map(record => record.fields['Size Label'])
+      .map(record => record.fields['Size Label']) // 🔍 Field must match Airtable exactly
       .filter(Boolean);
 
     res.status(200).json({ options: sizes });
   } catch (error) {
-    console.error('❌ Failed to fetch company sizes:', error);
-    res.status(500).json({ error: 'Failed to fetch company sizes' });
+    console.error('❌ Error:', error);
+    res.status(500).json({ error: 'Fetch failed', details: error.message });
   }
 }
 
