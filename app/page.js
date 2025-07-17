@@ -52,13 +52,31 @@ export default function Home() {
       report_content: e.target.report.value
     };
 
-    const res = await fetch('https://hook.us2.make.com/qf0i3v8ufv007x1414n2p2o3676j46in', {
+    // ✅ Submit to Make.com (your webhook)
+    await fetch('https://hook.us2.make.com/qf0i3v8ufv007x1414n2p2o3676j46in', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(payload)
     });
 
-    setStatus(res.ok ? '✅ Reform report submitted!' : '❌ Error sending data');
+    // ✅ Trigger PDF download
+    const pdfRes = await fetch('/api/generate-pdf', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    });
+
+    if (pdfRes.ok) {
+      const blob = await pdfRes.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = 'reform-report.pdf';
+      a.click();
+      setStatus('✅ Reform report submitted and downloaded!');
+    } else {
+      setStatus('⚠️ Form sent, but PDF generation failed.');
+    }
   };
 
   const inputStyle = {
@@ -160,5 +178,3 @@ export default function Home() {
     </main>
   );
 }
-           
-
