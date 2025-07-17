@@ -3,6 +3,9 @@ export default async function handler(req, res) {
   const baseId = 'app66DTFvdxGQKy4I';
   const tableName = 'Tiers';
 
+  const lang = res.req.headers['accept-language']?.startsWith('fr') ? 'fr' : 'en';
+  const fieldName = lang === 'fr' ? 'Tier Name FR' : 'Tier Name';
+
   try {
     const url = `https://api.airtable.com/v0/${baseId}/${encodeURIComponent(tableName)}`;
     const response = await fetch(url, {
@@ -14,7 +17,7 @@ export default async function handler(req, res) {
     const data = await response.json();
 
     const tiers = data.records
-      .map(record => record.fields['Tier Name'])
+      .map(record => record.fields[fieldName])
       .filter(Boolean)
       .sort((a, b) => {
         const numA = parseInt(a.match(/\d+/)?.[0] || '0');
@@ -28,4 +31,3 @@ export default async function handler(req, res) {
     res.status(500).json({ error: 'Server error', details: error.message });
   }
 }
-
