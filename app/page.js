@@ -1,3 +1,8 @@
+'use client'
+import React, { useState, useEffect } from 'react';
+import translations from '../translations';
+
+
 useEffect(() => {
   async function fetchOptions() {
     const resCountries = await fetch('/api/options/countries', {
