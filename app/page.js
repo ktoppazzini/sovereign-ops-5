@@ -24,3 +24,4 @@ export default function Home() {
       setCountries(countriesData.options || [])
       setTiers(tiersData.options || [])
       setSizes(sizesData.options || []);
+      
