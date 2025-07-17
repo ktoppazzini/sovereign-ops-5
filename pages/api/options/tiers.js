@@ -3,15 +3,13 @@ export default async function handler(req, res) {
   const baseId = 'app66DTFvdxGQKy4I';
   const tableName = 'Tiers';
 
-  const lang = res.req.headers['accept-language']?.startsWith('fr') ? 'fr' : 'en';
+  const lang = req.headers['accept-language']?.startsWith('fr') ? 'fr' : 'en';
   const fieldName = lang === 'fr' ? 'Tier Name FR' : 'Tier Name';
 
   try {
     const url = `https://api.airtable.com/v0/${baseId}/${encodeURIComponent(tableName)}`;
     const response = await fetch(url, {
-      headers: {
-        Authorization: `Bearer ${apiKey}`,
-      },
+      headers: { Authorization: `Bearer ${apiKey}` },
     });
 
     const data = await response.json();
