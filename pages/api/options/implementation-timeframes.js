@@ -1,42 +1,33 @@
 export default async function handler(req, res) {
-  const airtableApiKey = process.env.AIRTABLE_API_KEY;
-  const airtableBaseId = 'app66DTFvdxGQKy4I'; // ✅ Was missing before
-  const tableName = 'Reform Requests';
-  const fieldName = 'Implementation Time Frame';
+  const apiKey = process.env.AIRTABLE_API_KEY;
+  const baseId = 'app66DTFvdxGQKy4I';
+  const tableName = 'Implementation Timeframes';
+
+  const lang = req.headers['accept-language']?.startsWith('fr') ? 'fr' : 'en';
+  const fieldName = lang === 'fr' ? 'Time Frame FR' : 'Time Frame';
 
   try {
-    console.log('-- Fetching Implementation Time Frames...');
-    const url = `https://api.airtable.com/v0/meta/bases/${airtableBaseId}/tables`;
-    console.log('API_URL:', url);
-    console.log('API key present?', Boolean(airtableApiKey));
-
-console.log('🧾 Airtable response:', JSON.stringify(data, null, 2));
-
-
-
-    
-
+    const url = `https://api.airtable.com/v0/${baseId}/${encodeURIComponent(tableName)}`;
     const response = await fetch(url, {
       headers: {
-        Authorization: `Bearer ${airtableApiKey}`,
-        'Content-Type': 'application/json',
+        Authorization: `Bearer ${apiKey}`,
       },
     });
 
     const data = await response.json();
 
-    const table = data.tables.find(t => t.name === tableName);
-    const field = table?.fields.find(f => f.name === fieldName);
+    const timeframes = data.records
+      .map(record => record.fields[fieldName])
+      .filter(Boolean)
+      .sort((a, b) => {
+        const numA = parseFloat(a);
+        const numB = parseFloat(b);
+        return numA - numB;
+      });
 
-    if (!field || field.type !== 'singleSelect') {
-      return res.status(400).json({ error: 'Implementation Time Frame not found or not single select' });
-    }
-
-    const options = field.options?.choices?.map(choice => choice.name) || [];
-
-    res.status(200).json({ options });
+    res.status(200).json({ options: timeframes });
   } catch (error) {
-    console.error('Failed to fetch Implementation Time Frames:', error);
-    res.status(500).json({ error: 'Failed to fetch Implementation Time Frames' });
+    console.error('❌ Failed to fetch time frames:', error);
+    res.status(500).json({ error: 'Server error', details: error.message });
   }
 }
