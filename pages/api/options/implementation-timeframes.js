@@ -16,18 +16,19 @@ export default async function handler(req, res) {
 
     const data = await response.json();
 
+    console.log('🧾 Airtable Raw Response:', JSON.stringify(data, null, 2)); // 🔍 LOG THIS
+
+    if (!data.records) {
+      return res.status(500).json({ error: 'Missing records', airtable: data });
+    }
+
     const timeframes = data.records
       .map(record => record.fields[fieldName])
-      .filter(Boolean)
-      .sort((a, b) => {
-        const numA = parseFloat(a);
-        const numB = parseFloat(b);
-        return numA - numB;
-      });
+      .filter(Boolean);
 
     res.status(200).json({ options: timeframes });
   } catch (error) {
-    console.error('❌ Failed to fetch time frames:', error);
+    console.error('❌ Failed to fetch timeframes:', error);
     res.status(500).json({ error: 'Server error', details: error.message });
   }
 }
