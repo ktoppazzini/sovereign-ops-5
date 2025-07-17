@@ -5,9 +5,11 @@ import translations from '../translations';
 export default function Home() {
   const [status, setStatus] = useState('');
   const [lang, setLang] = useState('en');
+
   const [countries, setCountries] = useState([]);
   const [tiers, setTiers] = useState([]);
   const [sizes, setSizes] = useState([]);
+  const [timeFrames, setTimeFrames] = useState([]);
 
   const t = translations[lang];
 
@@ -26,6 +28,10 @@ export default function Home() {
       const resSizes = await fetch('/api/options/company-sizes');
       const sizesData = await resSizes.json();
       setSizes(sizesData.options || []);
+
+      const resTimeFrames = await fetch('/api/options/implementation-timeframes', { headers });
+      const timeFrameData = await resTimeFrames.json();
+      setTimeFrames(timeFrameData.options || []);
     }
 
     fetchOptions();
@@ -33,6 +39,7 @@ export default function Home() {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+
     const payload = {
       organization: e.target.organization.value,
       country: e.target.country.value,
@@ -128,11 +135,7 @@ export default function Home() {
         <label style={labelStyle}>{t.timeFrame}</label>
         <select name="timeFrame" style={inputStyle} required>
           <option value="">{t.timeFrame}</option>
-          {[
-            "1 month","2 months","3 months","4 months","5 months","6 months","7 months","8 months","9 months",
-            "10 months","11 months","1 year","1.5 years","2 years","2.5 years","3 years","3.5 years",
-            "4 years","4.5 years","5 years","6 years","7 years","8 years","9 years","10 years"
-          ].map(opt => <option key={opt}>{opt}</option>)}
+          {timeFrames.map(tf => <option key={tf}>{tf}</option>)}
         </select>
 
         <label style={labelStyle}>{t.report}</label>
