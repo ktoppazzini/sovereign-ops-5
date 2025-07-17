@@ -1,44 +1,42 @@
-'use client';
-import { useState, useEffect } from 'react';
-import translations from '../translations';
+'use client'
+import { useState, useEffect } from 'react'
+import translations from '../translations'
 
 export default function Home() {
-  const [status, setStatus] = useState('');
-  const [lang, setLang] = useState('en');
+  const [status, setStatus] = useState('')
+  const [lang, setLang] = useState('en')
+  const [countries, setCountries] = useState([])
+  const [tiers, setTiers] = useState([])
+  const [sizes, setSizes] = useState([])
+  const [timeFrames, setTimeFrames] = useState([])
 
-  const [countries, setCountries] = useState([]);
-  const [tiers, setTiers] = useState([]);
-  const [sizes, setSizes] = useState([]);
-  const [timeFrames, setTimeFrames] = useState([]);
-
-  const t = translations[lang];
+  const t = translations[lang]
 
   useEffect(() => {
     async function fetchOptions() {
-      const headers = { 'Accept-Language': lang };
+      const resCountries = await fetch('/api/options/countries')
+      const countriesData = await resCountries.json()
 
-      const resCountries = await fetch('/api/options/countries', { headers });
-      const countriesData = await resCountries.json();
-      setCountries(countriesData.options || []);
+      const resTiers = await fetch('/api/options/tiers')
+      const tiersData = await resTiers.json()
 
-      const resTiers = await fetch('/api/options/tiers', { headers });
-      const tiersData = await resTiers.json();
-      setTiers(tiersData.options || []);
+      const resSizes = await fetch('/api/options/company-sizes')
+      const sizesData = await resSizes.json()
 
-      const resSizes = await fetch('/api/options/company-sizes');
-      const sizesData = await resSizes.json();
-      setSizes(sizesData.options || []);
+      const resTimeFrames = await fetch('/api/options/implementation-timeframes')
+      const timeFramesData = await resTimeFrames.json()
 
-      const resTimeFrames = await fetch('/api/options/implementation-timeframes', { headers });
-      const timeFrameData = await resTimeFrames.json();
-      setTimeFrames(timeFrameData.options || []);
+      setCountries(countriesData.options || [])
+      setTiers(tiersData.options || [])
+      setSizes(sizesData.options || [])
+      setTimeFrames(timeFramesData.options || [])
     }
 
-    fetchOptions();
-  }, [lang]);
+    fetchOptions()
+  }, [])
 
   const handleSubmit = async (e) => {
-    e.preventDefault();
+    e.preventDefault()
 
     const payload = {
       organization: e.target.organization.value,
@@ -50,34 +48,55 @@ export default function Home() {
       cost_savings_goal: e.target.cost.value,
       implementation_time_frame: e.target.timeFrame.value,
       report_content: e.target.report.value
-    };
-
-    // ✅ Submit to Make.com (your webhook)
-    await fetch('https://hook.us2.make.com/qf0i3v8ufv007x1414n2p2o3676j46in', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload)
-    });
-
-    // ✅ Trigger PDF download
-    const pdfRes = await fetch('/api/generate-pdf', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload)
-    });
-
-    if (pdfRes.ok) {
-      const blob = await pdfRes.blob();
-      const url = window.URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = 'reform-report.pdf';
-      a.click();
-      setStatus('✅ Reform report submitted and downloaded!');
-    } else {
-      setStatus('⚠️ Form sent, but PDF generation failed.');
     }
-  };
+
+    try {
+      // Save to Airtable
+      const airtableRes = await fetch('https://hook.us2.make.com/qf0i3v8ufv007x1414n2p2o3676j46in', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      })
+
+      if (!airtableRes.ok) throw new Error('Airtable submission failed')
+
+      // PDF download
+      const html = `
+        <h1 style="color:#0a2447;">Reform Report</h1>
+        <p><strong>Organization:</strong> ${payload.organization}</p>
+        <p><strong>Country:</strong> ${payload.country}</p>
+        <p><strong>Tier:</strong> ${payload.tier}</p>
+        <p><strong>Company Size:</strong> ${payload.company_size}</p>
+        <p><strong>Goal:</strong> ${payload.goal}</p>
+        <p><strong>Outcome:</strong> ${payload.desired_outcome}</p>
+        <p><strong>Cost Goal:</strong> $${payload.cost_savings_goal}</p>
+        <p><strong>Timeline:</strong> ${payload.implementation_time_frame}</p>
+        <p style="margin-top:1rem;"><strong>Report:</strong></p>
+        <p>${payload.report_content}</p>
+      `
+
+      const pdfRes = await fetch('/api/generate-pdf', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ html })
+      })
+
+      if (pdfRes.ok) {
+        const blob = await pdfRes.blob()
+        const url = window.URL.createObjectURL(blob)
+        const a = document.createElement('a')
+        a.href = url
+        a.download = 'ReformReport.pdf'
+        a.click()
+        window.URL.revokeObjectURL(url)
+      }
+
+      setStatus('✅ Reform report submitted and PDF downloaded!')
+    } catch (error) {
+      console.error('❌ Error:', error)
+      setStatus('❌ Submission or PDF failed. Please try again.')
+    }
+  }
 
   const inputStyle = {
     width: '100%',
@@ -86,14 +105,14 @@ export default function Home() {
     borderRadius: '6px',
     border: '1px solid #ccc',
     fontSize: '1rem'
-  };
+  }
 
   const labelStyle = {
     fontWeight: 'bold',
     marginBottom: '0.25rem',
     display: 'block',
     color: '#0a2447'
-  };
+  }
 
   return (
     <main style={{
@@ -105,20 +124,13 @@ export default function Home() {
       margin: 'auto'
     }}>
       <img src="/logo.png" alt="Sovereign OPS Logo" style={{ width: '160px', marginBottom: '2rem' }} />
-
-      <button onClick={() => setLang(lang === 'en' ? 'fr' : 'en')} style={{
-        marginBottom: '1.5rem',
-        backgroundColor: '#eee',
-        border: '1px solid #ccc',
-        padding: '0.4rem 0.75rem',
-        cursor: 'pointer',
-        borderRadius: '5px'
-      }}>
-        Switch to {lang === 'en' ? 'Français' : 'English'}
-      </button>
+      <div style={{ textAlign: 'right', marginBottom: '1rem' }}>
+        <button onClick={() => setLang(lang === 'en' ? 'fr' : 'en')}>
+          {lang === 'en' ? 'FR' : 'EN'}
+        </button>
+      </div>
 
       <h1 style={{ marginBottom: '2rem' }}>Empire Reform Request Form</h1>
-
       <form onSubmit={handleSubmit}>
         <label style={labelStyle}>{t.orgName}</label>
         <input name="organization" placeholder={t.orgName} style={inputStyle} required />
@@ -142,7 +154,7 @@ export default function Home() {
         </select>
 
         <label style={labelStyle}>{t.goal}</label>
-        <input name="goal" placeholder={t.goal} style={inputStyle} required />
+        <input name="goal" placeholder="e.g. Cut costs, improve efficiency" style={inputStyle} required />
 
         <label style={labelStyle}>{t.desiredOutcome}</label>
         <input name="desiredOutcome" placeholder={t.desiredOutcome} style={inputStyle} required />
@@ -157,7 +169,7 @@ export default function Home() {
         </select>
 
         <label style={labelStyle}>{t.report}</label>
-        <textarea name="report" placeholder={t.report} rows={6} style={inputStyle} required />
+        <textarea name="report" placeholder="Paste the generated content here..." rows={6} style={inputStyle} required />
 
         <button type="submit" style={{
           backgroundColor: '#0a2447',
@@ -176,5 +188,5 @@ export default function Home() {
         {status}
       </p>
     </main>
-  );
+  )
 }
