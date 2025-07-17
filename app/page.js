@@ -25,7 +25,6 @@ export default function Home() {
       const sizesData = await resSizes.json();
       setSizes(sizesData.options || []);
     }
-
     fetchOptions();
   }, []);
 
@@ -41,13 +40,13 @@ export default function Home() {
       desired_outcome: e.target.desiredOutcome.value,
       cost_savings_goal: e.target.cost.value,
       implementation_time_frame: e.target.timeFrame.value,
-      report_content: e.target.report.value,
+      report_content: e.target.report.value
     };
 
     const res = await fetch('https://hook.us2.make.com/qf0i3v8ufv007x1414n2p2o3676j46in', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload),
+      body: JSON.stringify(payload)
     });
 
     setStatus(res.ok ? '✅ Reform report submitted!' : '❌ Error sending data');
@@ -59,14 +58,14 @@ export default function Home() {
     marginBottom: '1rem',
     borderRadius: '6px',
     border: '1px solid #ccc',
-    fontSize: '1rem',
+    fontSize: '1rem'
   };
 
   const labelStyle = {
     fontWeight: 'bold',
     marginBottom: '0.25rem',
     display: 'block',
-    color: '#0a2447',
+    color: '#0a2447'
   };
 
   return (
@@ -79,12 +78,18 @@ export default function Home() {
       margin: 'auto'
     }}>
       <img src="/logo.png" alt="Sovereign OPS Logo" style={{ width: '160px', marginBottom: '2rem' }} />
-      <div style={{ marginBottom: '1rem' }}>
-        <button onClick={() => setLang('en')} style={{ marginRight: '10px' }}>English</button>
-        <button onClick={() => setLang('fr')}>Français</button>
-      </div>
-
       <h1 style={{ marginBottom: '2rem' }}>Empire Reform Request Form</h1>
+
+      <button onClick={() => setLang(lang === 'en' ? 'fr' : 'en')} style={{
+        marginBottom: '1.5rem',
+        backgroundColor: '#eee',
+        border: '1px solid #ccc',
+        padding: '0.4rem 0.75rem',
+        cursor: 'pointer',
+        borderRadius: '5px'
+      }}>
+        Switch to {lang === 'en' ? 'Français' : 'English'}
+      </button>
 
       <form onSubmit={handleSubmit}>
         <label style={labelStyle}>{t.orgName}</label>
@@ -92,19 +97,19 @@ export default function Home() {
 
         <label style={labelStyle}>{t.country}</label>
         <select name="country" style={inputStyle} required>
-          <option value="">Select country</option>
+          <option value="">{`Select ${t.country.toLowerCase()}`}</option>
           {countries.map(c => <option key={c}>{c}</option>)}
         </select>
 
         <label style={labelStyle}>{t.tier}</label>
         <select name="tier" style={inputStyle} required>
-          <option value="">Select Tier</option>
+          <option value="">{`Select ${t.tier.toLowerCase()}`}</option>
           {tiers.map(tier => <option key={tier}>{tier}</option>)}
         </select>
 
         <label style={labelStyle}>{t.companySize}</label>
         <select name="companySize" style={inputStyle} required>
-          <option value="">Select Company Size</option>
+          <option value="">{`Select ${t.companySize.toLowerCase()}`}</option>
           {sizes.map(size => <option key={size}>{size}</option>)}
         </select>
 
@@ -119,11 +124,12 @@ export default function Home() {
 
         <label style={labelStyle}>{t.timeFrame}</label>
         <select name="timeFrame" style={inputStyle} required>
-          <option value="">Select Time Frame</option>
+          <option value="">{`Select ${t.timeFrame.toLowerCase()}`}</option>
           {[
-            "1 month","2 months","3 months","4 months","5 months","6 months","7 months","8 months","9 months",
-            "10 months","11 months","1 year","1.5 years","2 years","2.5 years","3 years","3.5 years",
-            "4 years","4.5 years","5 years","6 years","7 years","8 years","9 years","10 years"
+            "1 month","2 months","3 months","4 months","5 months","6 months",
+            "7 months","8 months","9 months","10 months","11 months","1 year",
+            "1.5 years","2 years","2.5 years","3 years","3.5 years","4 years",
+            "4.5 years","5 years","6 years","7 years","8 years","9 years","10 years"
           ].map(opt => <option key={opt}>{opt}</option>)}
         </select>
 
@@ -149,5 +155,3 @@ export default function Home() {
     </main>
   );
 }
-
-      
