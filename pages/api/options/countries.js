@@ -3,36 +3,20 @@ export default async function handler(req, res) {
   const baseId = 'app66DTFvdxGQKy4I';
   const tableName = 'Countries';
 
-  let countries = [];
-  let offset = null;
-
   try {
-    do {
-      const url = new URL(`https://api.airtable.com/v0/${baseId}/${tableName}`);
-      if (offset) url.searchParams.append('offset', offset);
+    const url = `https://api.airtable.com/v0/${baseId}/${encodeURIComponent(tableName)}`;
+    const response = await fetch(url, {
+      headers: {
+        Authorization: `Bearer ${apiKey}`,
+      },
+    });
 
-      console.log('-- Fetching Countries...');
-      console.log('API_URL:', url.toString());
-      console.log('API key present?', Boolean(apiKey));
+    const data = await response.json();
 
-      const response = await fetch(url.toString(), {
-        headers: { Authorization: `Bearer ${apiKey}` },
-      });
-
-      const data = await response.json();
-      console.log('🔍 Airtable raw:', JSON.stringify(data, null, 2));
-
-      if (data.error) {
-        return res.status(500).json({ error: 'Airtable error', details: data });
-      }
-
-      const newCountries = data.records
-        .map(record => record.fields['Country']) // Make sure this matches EXACTLY
-        .filter(Boolean);
-
-      countries = countries.concat(newCountries);
-      offset = data.offset;
-    } while (offset);
+    const countries = data.records
+      .map(record => record.fields['Country']) // Adjust this if your field is named differently
+      .filter(Boolean)
+      .sort((a, b) => a.localeCompare(b));
 
     res.status(200).json({ options: countries });
   } catch (error) {
