@@ -1,50 +1,183 @@
-import Airtable from 'airtable'
-import twilio from 'twilio'
+'use client'
+import { useState } from 'react'
+import translations from '../../translations'
 
-const base = new Airtable({ apiKey: process.env.AIRTABLE_API_KEY }).base('app66DTFvdxGQKy4I')
-const table = base('Users')
+export default function LoginPage() {
+  const [lang, setLang] = useState('en')
+  const t = translations[lang]
 
-const twilioClient = twilio(
-  process.env.TWILIO_ACCOUNT_SID,
-  process.env.TWILIO_AUTH_TOKEN
-)
+  const [email, setEmail] = useState('')
+  const [password, setPassword] = useState('')
+  const [mfa, setMfa] = useState('')
+  const [status, setStatus] = useState('')
+  const [step, setStep] = useState('login') // 'login' or 'mfa'
 
-export default async function handler(req, res) {
-  if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' })
-
-  const { email, password } = req.body
-
-  try {
-    const records = await table.select({ filterByFormula: `{Email} = '${email}'` }).firstPage()
-
-    if (!records.length) return res.status(401).json({ error: 'Invalid email' })
-
-    const user = records[0]
-    const fields = user.fields
-
-    if (fields.Password !== password) return res.status(401).json({ error: 'Incorrect password' })
-
-    // Generate 6-digit MFA code
-    const code = Math.floor(100000 + Math.random() * 900000).toString()
-
-    // Save it temporarily in 'MFA Temp' field
-    await table.update(user.id, { 'MFA Temp': code })
-
-    // Send via SMS if selected
-    if (fields['MFA Code'] === 'SMS') {
-      const to = fields['Phone number']
-      await twilioClient.messages.create({
-        body: `Your Sovereign OPS login code is: ${code}`,
-        from: process.env.TWILIO_PHONE_NUMBER,
-        to
-      })
-    }
-
-    return res.status(200).json({ message: 'MFA code sent', role: fields.Role })
-  } catch (err) {
-    console.error(err)
-    return res.status(500).json({ error: 'Server error' })
+  const inputStyle = {
+    width: '100%',
+    padding: '0.75rem',
+    marginBottom: '1rem',
+    borderRadius: '6px',
+    border: '1px solid #ccc',
+    fontSize: '1rem'
   }
+
+  const logAttempt = async (result) => {
+    await fetch('/api/log-login', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        email,
+        method: step === 'login' ? 'Password' : 'MFA',
+        result,
+        timestamp: new Date().toISOString()
+      })
+    })
+  }
+
+  const handleLogin = async (e) => {
+    e.preventDefault()
+    setStatus('🔐 Checking credentials...')
+
+    try {
+      const res = await fetch('/api/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, password })
+      })
+
+      const data = await res.json()
+
+      if (res.ok) {
+        await logAttempt('Success')
+        setStatus('📲 MFA sent. Please enter the code.')
+        setStep('mfa')
+      } else {
+        await logAttempt('Failed')
+        setStatus(`❌ ${data.error || 'Login failed'}`)
+      }
+    } catch (err) {
+      console.error(err)
+      await logAttempt('Error')
+      setStatus('❌ Error logging in. Try again.')
+    }
+  }
+
+  const handleVerifyMfa = async (e) => {
+    e.preventDefault()
+    setStatus('🔍 Verifying MFA...')
+
+    try {
+      const res = await fetch('/api/verify-mfa', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, mfa })
+      })
+
+      const data = await res.json()
+
+      if (res.ok) {
+        await logAttempt('Success')
+        localStorage.setItem('session', JSON.stringify({
+          email,
+          role: data.role
+        }))
+        setStatus('✅ Login successful. Redirecting...')
+        setTimeout(() => {
+          window.location.href = data.role === 'Admin' ? '/admin' : '/dashboard'
+        }, 1200)
+      } else {
+        await logAttempt('Failed')
+        setStatus(`❌ ${data.error || 'Incorrect MFA'}`)
+      }
+    } catch (err) {
+      console.error(err)
+      await logAttempt('Error')
+      setStatus('❌ Server error verifying MFA.')
+    }
+  }
+
+  return (
+    <main style={{
+      padding: '2rem',
+      fontFamily: 'Arial',
+      backgroundColor: '#ffffff',
+      color: '#0a2447',
+      maxWidth: '400px',
+      margin: 'auto',
+      marginTop: '4rem',
+      textAlign: 'center'
+    }}>
+      <img src="/logo.png" alt="Sovereign OPS Logo" style={{ width: '160px', marginBottom: '2rem' }} />
+      
+      <div style={{ marginBottom: '1rem', textAlign: 'right' }}>
+        <button onClick={() => setLang(lang === 'en' ? 'fr' : 'en')}>
+          {lang === 'en' ? 'FR' : 'EN'}
+        </button>
+      </div>
+
+      <h2 style={{ marginBottom: '2rem' }}>
+        {lang === 'en' ? 'Secure Login' : 'Connexion sécurisée'}
+      </h2>
+
+      {step === 'login' ? (
+        <form onSubmit={handleLogin}>
+          <input
+            style={inputStyle}
+            type="email"
+            placeholder="Email"
+            value={email}
+            onChange={e => setEmail(e.target.value)}
+            required
+          />
+          <input
+            style={inputStyle}
+            type="password"
+            placeholder="Password"
+            value={password}
+            onChange={e => setPassword(e.target.value)}
+            required
+          />
+          <button type="submit" style={{
+            backgroundColor: '#0a2447',
+            color: 'white',
+            padding: '0.75rem 1.5rem',
+            border: 'none',
+            borderRadius: '5px',
+            cursor: 'pointer',
+            fontSize: '1rem'
+          }}>
+            {lang === 'en' ? 'Login' : 'Connexion'}
+          </button>
+        </form>
+      ) : (
+        <form onSubmit={handleVerifyMfa}>
+          <input
+            style={inputStyle}
+            type="text"
+            placeholder="Enter MFA Code"
+            value={mfa}
+            onChange={e => setMfa(e.target.value)}
+            required
+          />
+          <button type="submit" style={{
+            backgroundColor: '#0a2447',
+            color: 'white',
+            padding: '0.75rem 1.5rem',
+            border: 'none',
+            borderRadius: '5px',
+            cursor: 'pointer',
+            fontSize: '1rem'
+          }}>
+            {lang === 'en' ? 'Verify Code' : 'Vérifier le code'}
+          </button>
+        </form>
+      )}
+
+      <p style={{ marginTop: '1rem', color: status.includes('✅') ? 'green' : 'red' }}>
+        {status}
+      </p>
+    </main>
+  )
 }
 
 
