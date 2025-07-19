@@ -1,4 +1,4 @@
-// pages/api/login.js
+// pages/api/log-login.js
 
 export default async function handler(req, res) {
   if (req.method !== 'POST') {
@@ -6,24 +6,19 @@ export default async function handler(req, res) {
   }
 
   try {
-    const { email, password } = req.body;
+    const { email } = req.body;
 
-    if (!email || !password) {
-      return res.status(400).json({ message: 'Email and password are required' });
+    if (!email) {
+      return res.status(400).json({ message: 'Email is required' });
     }
 
-    // 🔐 Replace this with real authentication logic
-    const isValidUser =
-      email === 'ktoppazzini@tlleanmanagement.com' && password === 'your-hardcoded-password';
+    // This is where you'd log the attempt — to console, file, DB, etc.
+    console.log(`🔐 Login attempt for ${email} at ${new Date().toISOString()}`);
 
-    if (!isValidUser) {
-      return res.status(401).json({ message: 'Invalid email or password' });
-    }
-
-    // ✅ Successful login (you can also set cookies here if needed)
-    return res.status(200).json({ message: 'Login successful' });
+    // Respond success
+    res.status(200).json({ message: 'Logged successfully' });
   } catch (error) {
-    console.error('Login Error:', error);
-    return res.status(500).json({ message: 'Internal Server Error' });
+    console.error('Log login error:', error);
+    res.status(500).json({ message: 'Internal Server Error' });
   }
 }
