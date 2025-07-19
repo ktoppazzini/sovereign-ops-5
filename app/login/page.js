@@ -1,5 +1,5 @@
 'use client'
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import translations from '../../translations'
 
 export default function LoginPage() {
@@ -12,6 +12,19 @@ export default function LoginPage() {
   const [status, setStatus] = useState('')
   const [step, setStep] = useState('login')
 
+  // ⏰ Auto-redirect if logged in
+  useEffect(() => {
+    const session = JSON.parse(localStorage.getItem('session'))
+    if (session && session.expires > Date.now()) {
+      const role = session.role
+      window.location.href = role === 'Admin'
+        ? '/admin'
+        : role === 'Regional Manager'
+          ? '/regional'
+          : '/dashboard'
+    }
+  }, [])
+
   const inputStyle = {
     width: '100%',
     padding: '0.75rem',
@@ -21,9 +34,22 @@ export default function LoginPage() {
     fontSize: '1rem'
   }
 
+  const logAttempt = async (result, method) => {
+    await fetch('/api/log-login', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        email,
+        method,
+        result,
+        timestamp: new Date().toISOString()
+      })
+    })
+  }
+
   const handleLogin = async (e) => {
     e.preventDefault()
-    setStatus('🔐 Verifying credentials...')
+    setStatus('🔐 Checking credentials...')
 
     try {
       const res = await fetch('/api/login', {
@@ -31,23 +57,26 @@ export default function LoginPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email, password })
       })
-
       const data = await res.json()
+
       if (res.ok) {
-        setStatus('📩 MFA code sent. Enter it below.')
+        await logAttempt('Success', 'Password')
+        setStatus('📲 MFA code sent.')
         setStep('mfa')
       } else {
+        await logAttempt('Failed', 'Password')
         setStatus(`❌ ${data.error || 'Login failed'}`)
       }
     } catch (err) {
       console.error(err)
-      setStatus('❌ Server error. Try again later.')
+      await logAttempt('Error', 'Password')
+      setStatus('❌ Server error.')
     }
   }
 
-  const handleVerifyMFA = async (e) => {
+  const handleVerifyMfa = async (e) => {
     e.preventDefault()
-    setStatus('🔎 Verifying MFA...')
+    setStatus('🔍 Verifying MFA...')
 
     try {
       const res = await fetch('/api/verify-mfa', {
@@ -55,27 +84,34 @@ export default function LoginPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email, mfa })
       })
-
       const data = await res.json()
+
       if (res.ok) {
-        localStorage.setItem('session', JSON.stringify({ email, role: data.role }))
+        await logAttempt('Success', 'MFA')
+        localStorage.setItem('session', JSON.stringify({
+          email,
+          role: data.role,
+          expires: Date.now() + 1000 * 60 * 60 // 1 hour expiry
+        }))
         setStatus('✅ Success. Redirecting...')
         setTimeout(() => {
           if (data.role === 'Admin') window.location.href = '/admin'
           else if (data.role === 'Regional Manager') window.location.href = '/regional'
           else window.location.href = '/dashboard'
-        }, 1200)
+        }, 1000)
       } else {
-        setStatus(`❌ ${data.error}`)
+        await logAttempt('Failed', 'MFA')
+        setStatus(`❌ ${data.error || 'Incorrect MFA'}`)
       }
     } catch (err) {
       console.error(err)
-      setStatus('❌ Verification failed. Try again.')
+      await logAttempt('Error', 'MFA')
+      setStatus('❌ Server error.')
     }
   }
 
-  const handleResendMFA = async () => {
-    setStatus('🔁 Resending MFA...')
+  const handleResend = async () => {
+    setStatus('🔁 Resending code...')
     try {
       const res = await fetch('/api/resend-mfa', {
         method: 'POST',
@@ -83,11 +119,10 @@ export default function LoginPage() {
         body: JSON.stringify({ email })
       })
       const data = await res.json()
-      if (res.ok) setStatus('✅ New code sent.')
-      else setStatus(`❌ ${data.error}`)
+      setStatus(res.ok ? '✅ Code resent!' : `❌ ${data.error}`)
     } catch (err) {
       console.error(err)
-      setStatus('❌ Error resending code.')
+      setStatus('❌ Error resending.')
     }
   }
 
@@ -103,13 +138,13 @@ export default function LoginPage() {
       textAlign: 'center'
     }}>
       <img src="/logo.png" alt="Sovereign OPS Logo" style={{ width: '160px', marginBottom: '2rem' }} />
-      <div style={{ marginBottom: '1rem', textAlign: 'right' }}>
+      <div style={{ textAlign: 'right' }}>
         <button onClick={() => setLang(lang === 'en' ? 'fr' : 'en')}>
           {lang === 'en' ? 'FR' : 'EN'}
         </button>
       </div>
 
-      <h2 style={{ marginBottom: '2rem' }}>{lang === 'en' ? 'Secure Login' : 'Connexion sécurisée'}</h2>
+      <h2>{lang === 'en' ? 'Secure Login' : 'Connexion sécurisée'}</h2>
 
       {step === 'login' && (
         <form onSubmit={handleLogin}>
@@ -129,8 +164,8 @@ export default function LoginPage() {
       )}
 
       {step === 'mfa' && (
-        <form onSubmit={handleVerifyMFA}>
-          <input style={inputStyle} type="text" placeholder="MFA Code" value={mfa} onChange={e => setMfa(e.target.value)} required />
+        <form onSubmit={handleVerifyMfa}>
+          <input style={inputStyle} type="text" placeholder="Enter MFA Code" value={mfa} onChange={e => setMfa(e.target.value)} required />
           <button type="submit" style={{
             backgroundColor: '#0a2447',
             color: '#fff',
@@ -141,23 +176,25 @@ export default function LoginPage() {
           }}>
             Verify Code
           </button>
-          <p style={{ marginTop: '1rem' }}>
-            <button onClick={handleResendMFA} type="button" style={{
-              fontSize: '0.9rem',
-              color: '#0a2447',
-              textDecoration: 'underline',
-              background: 'none',
-              border: 'none',
-              cursor: 'pointer'
-            }}>
-              Didn't get the code? Resend
-            </button>
-          </p>
+          <button onClick={handleResend} type="button" style={{
+            fontSize: '0.9rem',
+            marginTop: '1rem',
+            background: 'none',
+            border: 'none',
+            color: '#0a2447',
+            textDecoration: 'underline',
+            cursor: 'pointer'
+          }}>
+            Didn't get it? Resend
+          </button>
         </form>
       )}
 
-      <p style={{ marginTop: '1rem', color: status.includes('✅') ? 'green' : 'red' }}>{status}</p>
+      <p style={{ marginTop: '1rem', color: status.includes('✅') ? 'green' : 'red' }}>
+        {status}
+      </p>
     </main>
   )
 }
+
 
