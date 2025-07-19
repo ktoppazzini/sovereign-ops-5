@@ -9,9 +9,9 @@ export default async function handler(req, res) {
   }
 
   try {
-    const { email, method, result, timestamp } = req.body
+    const { email, method, result } = req.body
 
-    if (!email || !method || !result || !timestamp) {
+    if (!email || !method || !result) {
       return res.status(400).json({ error: 'Missing fields' })
     }
 
@@ -19,9 +19,9 @@ export default async function handler(req, res) {
       {
         fields: {
           Email: email,
-          Method: method,    // Must exactly match your Airtable single select options
-          Result: result,    // Must exactly match your Airtable single select options
-          Timestamp: timestamp
+          Method: method,
+          Result: result
+          // Don't include Timestamp – let Airtable populate it automatically
         }
       }
     ])
@@ -31,6 +31,8 @@ export default async function handler(req, res) {
     console.error('Error logging attempt:', err)
     res.status(500).json({ error: 'Logging failed' })
   }
+}
+
 }
 
 
