@@ -1,3 +1,4 @@
+// pages/api/login.js
 import Airtable from 'airtable'
 import twilio from 'twilio'
 
@@ -10,7 +11,9 @@ const twilioClient = twilio(
 )
 
 export default async function handler(req, res) {
-  if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' })
+  if (req.method !== 'POST') {
+    return res.status(405).json({ error: 'Method not allowed' })
+  }
 
   const { email, password } = req.body
 
@@ -19,35 +22,31 @@ export default async function handler(req, res) {
       filterByFormula: `{Email} = '${email}'`
     }).firstPage()
 
-    if (!records.length) {
-      console.log('❌ No matching email:', email)
-      return res.status(401).json({ error: 'Invalid email' })
-    }
+    if (!records.length) return res.status(401).json({ error: 'Invalid email' })
 
     const user = records[0]
     const fields = user.fields
 
     if (fields.Password !== password) {
-      console.log('❌ Incorrect password for:', email)
       return res.status(401).json({ error: 'Incorrect password' })
     }
 
-    if (fields['MFA Code'] === 'SMS') {
-      const code = Math.floor(100000 + Math.random() * 900000).toString()
-      console.log('📲 Sending MFA code:', code)
+    const mfaCode = Math.floor(100000 + Math.random() * 900000).toString()
 
+    await table.update(user.id, { 'MFA Temp': mfaCode })
+
+    if (fields['MFA Code'] === 'SMS') {
       await twilioClient.messages.create({
-        body: `Your Sovereign OPS login code is: ${code}`,
+        body: `Your Sovereign OPS login code is: ${mfaCode}`,
         from: process.env.TWILIO_PHONE,
         to: fields['Phone number']
       })
-
-      await table.update(user.id, { 'MFA Temp': code })
     }
 
     return res.status(200).json({ message: 'MFA sent' })
   } catch (err) {
-    console.error('💥 Login server error:', err)
+    console.error('Login error:', err)
     return res.status(500).json({ error: 'Server error' })
   }
 }
+
