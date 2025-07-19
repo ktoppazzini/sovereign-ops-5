@@ -21,7 +21,6 @@ export default async function handler(req, res) {
           Email: email,
           Method: method,
           Result: result
-          // Don't include Timestamp – let Airtable populate it automatically
         }
       }
     ])
@@ -32,6 +31,3 @@ export default async function handler(req, res) {
     res.status(500).json({ error: 'Logging failed' })
   }
 }
-
-
-
