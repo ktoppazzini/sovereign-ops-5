@@ -1,38 +1,25 @@
-// force redeploy
-
-/* jshint esversion: 6, node: true */
-
-import Airtable from 'airtable'
-
-const base = new Airtable({ apiKey: process.env.AIRTABLE_API_KEY }).base(process.env.AIRTABLE_BASE_ID)
-const table = base(process.env.AIRTABLE_TABLE_NAME)
+// pages/api/log-login.js
 
 export default async function handler(req, res) {
   if (req.method !== 'POST') {
-    return res.status(405).json({ error: 'Method not allowed' })
+    return res.status(405).json({ message: 'Method Not Allowed' });
   }
 
   try {
-    const { email, method, result } = req.body
+    const { email } = req.body;
 
-    if (!email || !method || !result) {
-      return res.status(400).json({ error: 'Missing fields' })
+    if (!email) {
+      return res.status(400).json({ message: 'Email is required' });
     }
 
-    await table.create([
-      {
-        fields: {
-          Email: email,
-          Method: method,
-          Result: result
-        }
-      }
-    ])
+    console.log(`🔐 Login attempt from: ${email} at ${new Date().toISOString()}`);
 
-    return res.status(200).json({ message: 'Login attempt logged successfully' })
-  } catch (err) {
-    console.error('Error logging attempt:', err)
-    return res.status(500).json({ error: 'Logging failed' })
+    // Log can also be saved to Airtable or DB here if needed
+
+    return res.status(200).json({ message: 'Login logged successfully' });
+  } catch (error) {
+    console.error('Log Login Error:', error);
+    return res.status(500).json({ message: 'Internal Server Error' });
   }
 }
 
