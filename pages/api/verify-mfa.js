@@ -9,23 +9,40 @@ export default async function handler(req, res) {
   const { email, mfa } = req.body
 
   try {
-    const records = await table.select({ filterByFormula: `{Email} = '${email}'` }).firstPage()
+    const records = await table.select({
+      filterByFormula: `{Email} = '${email}'`
+    }).firstPage()
 
     if (!records.length) return res.status(401).json({ error: 'Invalid email' })
 
     const user = records[0]
     const fields = user.fields
 
-    if (fields['MFA Temp'] !== mfa) {
+    const storedCode = fields['MFA Temp']
+    const sentAt = fields['MFA Sent At']
+
+    if (!storedCode || storedCode !== mfa) {
       return res.status(401).json({ error: 'Incorrect MFA code' })
     }
 
-    // Clear MFA temp field after success
-    await table.update(user.id, { 'MFA Temp': '' })
+    // Check expiration (5 minutes max)
+    const now = new Date()
+    const sentDate = new Date(sentAt)
+    const diff = (now - sentDate) / 1000 / 60 // in minutes
 
-    return res.status(200).json({ message: 'Success', role: fields.Role })
+    if (diff > 5) {
+      return res.status(401).json({ error: 'MFA code expired. Please request a new code.' })
+    }
+
+    // Clear MFA code after success
+    await table.update(user.id, {
+      'MFA Temp': '',
+      'MFA Sent At': ''
+    })
+
+    res.status(200).json({ message: 'Success', role: fields.Role || 'User' })
   } catch (err) {
     console.error(err)
-    return res.status(500).json({ error: 'Server error' })
+    res.status(500).json({ error: 'Server error verifying MFA' })
   }
 }
