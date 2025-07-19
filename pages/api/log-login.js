@@ -15,12 +15,16 @@ export default async function handler(req, res) {
       return res.status(400).json({ error: 'Missing fields' })
     }
 
-    await table.create({
-      Email: email,
-      Method: method,
-      Result: result,
-      Timestamp: timestamp
-    })
+    await table.create([
+      {
+        fields: {
+          Email: email,
+          Method: method,    // Must exactly match your Airtable single select options
+          Result: result,    // Must exactly match your Airtable single select options
+          Timestamp: timestamp
+        }
+      }
+    ])
 
     res.status(200).json({ message: 'Login attempt logged' })
   } catch (err) {
@@ -28,4 +32,5 @@ export default async function handler(req, res) {
     res.status(500).json({ error: 'Logging failed' })
   }
 }
+
 
