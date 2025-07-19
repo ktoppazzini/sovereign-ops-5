@@ -1,5 +1,5 @@
 // pages/api/log-login.js
-import bcrypt from 'bcryptjs';
+const match = await bcrypt.compare(password, storedHash);
 export default async function handler(req, res) {
   if (req.method !== 'POST') {
     return res.status(405).json({ message: 'Method Not Allowed' });
