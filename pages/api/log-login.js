@@ -1,4 +1,3 @@
-// pages/api/log-login.js
 import Airtable from 'airtable'
 
 const base = new Airtable({ apiKey: process.env.AIRTABLE_API_KEY }).base('app66DTFvdxGQKy4I')
@@ -13,7 +12,7 @@ export default async function handler(req, res) {
     const { email, method, result } = req.body
 
     if (!email || !method || !result) {
-      return res.status(400).json({ error: 'Missing required fields' })
+      return res.status(400).json({ error: 'Missing fields' })
     }
 
     await table.create([
@@ -22,7 +21,6 @@ export default async function handler(req, res) {
           Email: email,
           Method: method,
           Result: result
-          // No timestamp passed — let Airtable auto-fill it via created time
         }
       }
     ])
@@ -33,4 +31,5 @@ export default async function handler(req, res) {
     res.status(500).json({ error: 'Logging failed' })
   }
 }
+
 
