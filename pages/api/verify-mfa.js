@@ -33,23 +33,26 @@ export default async function handler(req, res) {
     const deliveryMethod = user['MFA Code'] || 'email';
     const userPhone = user['Phone number']?.toString().replace(/\D/g, '');
     const formattedPhone = `+1${userPhone}`;
-
     const mfaCode = code || Math.floor(100000 + Math.random() * 900000).toString();
 
     if (deliveryMethod === 'SMS') {
-      const client = twilio(process.env.TWILIO_SID, process.env.TWILIO_TOKEN);
+      try {
+        const client = twilio(process.env.TWILIO_SID, process.env.TWILIO_TOKEN);
 
-      const message = await client.messages.create({
-        body: `Your Sovereign OPS login code is: ${mfaCode}`,
-        from: process.env.TWILIO_PHONE,
-        to: formattedPhone,
-      });
+        await client.messages.create({
+          body: `Your Sovereign OPS login code is: ${mfaCode}`,
+          from: process.env.TWILIO_PHONE, // must be a purchased Twilio number
+          to: formattedPhone,
+        });
 
-      console.log("✅ Sent via SMS:", message.sid);
-      return res.status(200).json({ message: 'Text sent' });
+        return res.status(200).json({ message: 'Check your texts for the verification code.' });
+      } catch (err) {
+        console.error('❌ SMS Error:', err);
+        return res.status(500).json({ error: 'Failed to send text message' });
+      }
     }
 
-    // fallback or preference is email
+    // fallback or email preference
     const transporter = nodemailer.createTransport({
       service: 'gmail',
       auth: {
@@ -65,11 +68,10 @@ export default async function handler(req, res) {
       text: `Your code is: ${mfaCode}`,
     });
 
-    console.log("📧 Email sent");
-    return res.status(200).json({ message: 'Email sent' });
+    return res.status(200).json({ message: 'Check your email for the verification code.' });
 
   } catch (error) {
-    console.error('MFA send error:', error);
+    console.error('MFA error:', error);
     return res.status(500).json({ error: 'Failed to send MFA code' });
   }
 }
