@@ -1,58 +1,52 @@
 import bcrypt from 'bcryptjs';
+import Airtable from 'airtable';
+
+const base = new Airtable({ apiKey: process.env.AIRTABLE_API_KEY }).base(
+  'app66DTFvdxGQKy4l' // ← Replace with your actual base ID
+);
 
 export default async function handler(req, res) {
   if (req.method !== 'POST') {
     return res.status(405).json({ message: 'Method Not Allowed' });
   }
 
+  const { email, password } = req.body;
+
   try {
-    const { email, password } = req.body;
+    let foundUser = null;
 
-    if (!email || !password) {
-      return res.status(400).json({ message: 'Email and password are required' });
+    // Search Airtable for the user
+    await base('Users')
+      .select({
+        filterByFormula: `{Email} = '${email}'`,
+        maxRecords: 1,
+      })
+      .eachPage((records, fetchNextPage) => {
+        if (records.length > 0) {
+          foundUser = records[0];
+        }
+        fetchNextPage(); // Optional but safe
+      });
+
+    if (!foundUser) {
+      return res.status(401).json({ message: 'Invalid email or password' });
     }
 
-    // Airtable config
-    const AIRTABLE_API_KEY = process.env.AIRTABLE_API_KEY;
-    const AIRTABLE_BASE_ID = process.env.AIRTABLE_BASE_ID;
-    const TABLE_NAME = 'Users';
+    const storedHash = foundUser.get('auth_token_key');
 
-    console.log("🔍 Looking for email:", email.toLowerCase());
+    console.log('Comparing:', password, 'WITH HASH:', storedHash);
 
-    const filter = `LOWER({email})='${email.toLowerCase()}'`;
-    const response = await fetch(
-      `https://api.airtable.com/v0/${AIRTABLE_BASE_ID}/${TABLE_NAME}?filterByFormula=${encodeURIComponent(filter)}`,
-      {
-        headers: {
-          Authorization: `Bearer ${AIRTABLE_API_KEY}`,
-          'Content-Type': 'application/json',
-        },
-      }
-    );
+    const isMatch = await bcrypt.compare(password, storedHash);
 
-    const result = await response.json();
-    console.log("📦 Airtable query result:", JSON.stringify(result, null, 2));
-
-    if (!result.records || result.records.length === 0) {
-      return res.status(401).json({ message: 'User not found' });
+    if (!isMatch) {
+      return res.status(401).json({ message: 'Invalid email or password' });
     }
 
-    const user = result.records[0].fields;
-    const storedHash = user.auth_token_key;
-
-    console.log("🔐 Entered password:", password);
-    console.log("🔐 Stored hash:", storedHash);
-
-    const match = await bcrypt.compare(password, storedHash);
-
-    if (!match) {
-      return res.status(401).json({ message: 'Invalid credentials' });
-    }
-
-    return res.status(200).json({ message: 'Login successful', user: { email: user.email } });
-  } catch (error) {
-    console.error('❌ Login error:', error);
-    return res.status(500).json({ message: 'Internal Server Error', details: error.message });
+    // Success
+    return res.status(200).json({ message: 'Login successful' });
+  } catch (err) {
+    console.error('Login error:', err);
+    return res.status(500).json({ message: 'Internal server error' });
   }
 }
 
