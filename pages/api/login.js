@@ -13,10 +13,12 @@ export default async function handler(req, res) {
 
   try {
     const airtableApiKey = process.env.AIRTABLE_API_KEY;
-    const baseId = 'app66DTFvdxGQKy4I'; // Your actual base ID
+    const baseId = process.env.AIRTABLE_BASE_ID; // Use env var here
     const tableName = 'Users';
 
-    const response = await fetch(`https://api.airtable.com/v0/${baseId}/${tableName}?filterByFormula={Email}="${email}"`, {
+    const airtableUrl = `https://api.airtable.com/v0/${baseId}/${tableName}?filterByFormula={Email}="${email}"`;
+
+    const response = await fetch(airtableUrl, {
       headers: {
         Authorization: `Bearer ${airtableApiKey}`,
         'Content-Type': 'application/json',
@@ -26,32 +28,32 @@ export default async function handler(req, res) {
     const data = await response.json();
 
     if (!data.records || data.records.length === 0) {
-      console.log("No matching email found:", email);
+      console.log("❌ No user found for:", email);
       return res.status(401).json({ message: 'Invalid email or password.' });
     }
 
     const user = data.records[0].fields;
     const storedHash = (user.auth_token_key || '').trim();
 
-    console.log("Comparing password:", password);
-    console.log("Stored hash:", storedHash);
-    console.log("Hash length:", storedHash.length);
+    console.log("👉 Comparing:", password, "WITH HASH:", JSON.stringify(storedHash));
+    console.log("🔢 Hash Length:", storedHash.length);
 
     const match = await bcrypt.compare(password, storedHash);
 
     if (!match) {
-      console.log("❌ Passwords do not match");
+      console.log("❌ Password mismatch");
       return res.status(401).json({ message: 'Invalid email or password.' });
     }
 
-    console.log("✅ Password matched");
-    return res.status(200).json({ message: 'Login successful' });
+    console.log("✅ Password verified");
+    return res.status(200).json({ message: 'Login successful', role: user.Role || 'User' });
 
   } catch (err) {
-    console.error("Login error:", err);
+    console.error("💥 Login error:", err);
     return res.status(500).json({ message: 'Internal server error' });
   }
 }
+
 
 
 
