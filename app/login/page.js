@@ -2,7 +2,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
-import secureIcon from "/images/secure.png"; // ✅ This must exist in /public/images/
+import secureIcon from '@/public/images/secure.png'; // ✅ This must exist in /public/images/
 
 export default function LoginPage() {
   const [email, setEmail] = useState("");
