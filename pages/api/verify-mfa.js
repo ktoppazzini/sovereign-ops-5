@@ -1,6 +1,4 @@
-// pages/api/verify-mfa.js
-import nodemailer from 'nodemailer';
-import twilio from 'twilio';
+// pages/api/verify-code.js
 
 export default async function handler(req, res) {
   if (req.method !== 'POST') {
@@ -9,11 +7,16 @@ export default async function handler(req, res) {
 
   const { email, code } = req.body;
 
+  if (!email || !code) {
+    return res.status(400).json({ error: 'Missing email or code' });
+  }
+
   try {
     const airtableApiKey = process.env.AIRTABLE_API_KEY;
     const baseId = process.env.AIRTABLE_BASE_ID;
     const tableName = 'Users';
 
+    // Fetch user from Airtable by email
     const url = `https://api.airtable.com/v0/${baseId}/${tableName}?filterByFormula={Email}="${email}"`;
 
     const response = await fetch(url, {
@@ -29,49 +32,36 @@ export default async function handler(req, res) {
       return res.status(404).json({ error: 'User not found' });
     }
 
-    const user = data.records[0].fields;
-    const deliveryMethod = user['MFA Code'] || 'email';
-    const userPhone = user['Phone number']?.toString().replace(/\D/g, '');
-    const formattedPhone = `+1${userPhone}`;
-    const mfaCode = code || Math.floor(100000 + Math.random() * 900000).toString();
+    const record = data.records[0];
+    const user = record.fields;
+    const storedCode = user['Last MFA Code'];
 
-    if (deliveryMethod === 'SMS') {
-      try {
-        const client = twilio(process.env.TWILIO_SID, process.env.TWILIO_TOKEN);
-
-        await client.messages.create({
-          body: `Your Sovereign OPS login code is: ${mfaCode}`,
-          from: process.env.TWILIO_PHONE, // must be a purchased Twilio number
-          to: formattedPhone,
-        });
-
-        return res.status(200).json({ message: 'Check your texts for the verification code.' });
-      } catch (err) {
-        console.error('❌ SMS Error:', err);
-        return res.status(500).json({ error: 'Failed to send text message' });
-      }
+    if (!storedCode) {
+      return res.status(400).json({ error: 'No stored verification code found.' });
     }
 
-    // fallback or email preference
-    const transporter = nodemailer.createTransport({
-      service: 'gmail',
-      auth: {
-        user: process.env.EMAIL_FROM,
-        pass: process.env.EMAIL_PASSWORD,
+    if (storedCode.toString().trim() !== code.toString().trim()) {
+      return res.status(401).json({ error: 'Invalid verification code.' });
+    }
+
+    // Optionally clear the code after use
+    await fetch(`https://api.airtable.com/v0/${baseId}/${tableName}/${record.id}`, {
+      method: "PATCH",
+      headers: {
+        Authorization: `Bearer ${airtableApiKey}`,
+        'Content-Type': 'application/json',
       },
+      body: JSON.stringify({
+        fields: {
+          "Last MFA Code": "",
+          "Code Timestamp": "", // optional
+        }
+      }),
     });
 
-    await transporter.sendMail({
-      from: process.env.EMAIL_FROM,
-      to: email,
-      subject: 'Your Sovereign OPS Verification Code',
-      text: `Your code is: ${mfaCode}`,
-    });
-
-    return res.status(200).json({ message: 'Check your email for the verification code.' });
-
+    return res.status(200).json({ success: true });
   } catch (error) {
-    console.error('MFA error:', error);
-    return res.status(500).json({ error: 'Failed to send MFA code' });
+    console.error("❌ Verification error:", error);
+    return res.status(500).json({ error: 'Server error verifying code.' });
   }
 }
