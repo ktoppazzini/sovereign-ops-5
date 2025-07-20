@@ -1,80 +1,77 @@
-import { useState } from 'react';
+// pages/api/verify-mfa.js
+import nodemailer from 'nodemailer';
+import twilio from 'twilio';
 
-export default function VerifyMFA() {
-  const [code, setCode] = useState('');
-  const [email, setEmail] = useState('');
-  const [toastMessage, setToastMessage] = useState('');
-  const [loading, setLoading] = useState(false);
+export default async function handler(req, res) {
+  if (req.method !== 'POST') {
+    return res.status(405).json({ error: 'Method not allowed' });
+  }
 
-  const handleVerify = async (e) => {
-    e.preventDefault();
-    setLoading(true);
-    setToastMessage('');
+  const { email, code } = req.body;
+  const airtableApiKey = process.env.AIRTABLE_API_KEY;
+  const baseId = process.env.AIRTABLE_BASE_ID;
+  const tableName = 'Users';
 
-    try {
-      const response = await fetch('/api/verify-mfa', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ email, code }),
+  try {
+    // Step 1: Get user from Airtable
+    const airtableUrl = `https://api.airtable.com/v0/${baseId}/${tableName}?filterByFormula={Email}="${email}"`;
+
+    const response = await fetch(airtableUrl, {
+      headers: {
+        Authorization: `Bearer ${airtableApiKey}`,
+        'Content-Type': 'application/json',
+      },
+    });
+
+    const data = await response.json();
+    if (!data.records || data.records.length === 0) {
+      return res.status(404).json({ error: 'User not found.' });
+    }
+
+    const user = data.records[0].fields;
+    const deliveryMethod = user['MFA Code'] || 'email';
+    const userPhone = user['Phone number']?.toString().replace(/\D/g, '');
+    const formattedPhone = `+1${userPhone}`;
+
+    // Generate a simple 6-digit verification code
+    const generatedCode = code || Math.floor(100000 + Math.random() * 900000).toString();
+
+    // Send via SMS
+    if (deliveryMethod === 'SMS') {
+      const client = twilio(process.env.TWILIO_SID, process.env.TWILIO_TOKEN);
+
+      const result = await client.messages.create({
+        body: `Your Sovereign OPS verification code is: ${generatedCode}`,
+        from: process.env.TWILIO_PHONE,
+        to: formattedPhone,
       });
 
-      const result = await response.json();
+      console.log("✅ Sent via SMS", result.sid);
 
-      if (response.ok) {
-        // ✅ Show correct dynamic message from backend
-        setToastMessage(result.message || 'Verification successful');
-      } else {
-        setToastMessage(result.error || 'Verification failed');
-      }
-    } catch (error) {
-      console.error('Verification error:', error);
-      setToastMessage('Something went wrong');
-    } finally {
-      setLoading(false);
+      return res.status(200).json({ message: 'Text sent' });
     }
-  };
 
-  return (
-    <div style={{ textAlign: 'center', marginTop: '100px' }}>
-      <h2>Secure Login</h2>
+    // Send via Email
+    const transporter = nodemailer.createTransport({
+      service: 'gmail',
+      auth: {
+        user: process.env.EMAIL_FROM,
+        pass: process.env.EMAIL_PASSWORD,
+      },
+    });
 
-      <form onSubmit={handleVerify}>
-        <input
-          type="email"
-          placeholder="Enter email"
-          value={email}
-          onChange={(e) => setEmail(e.target.value)}
-          required
-          style={{ margin: '8px', padding: '8px' }}
-        />
+    await transporter.sendMail({
+      from: process.env.EMAIL_FROM,
+      to: email,
+      subject: 'Your Sovereign OPS Verification Code',
+      text: `Your code is: ${generatedCode}`,
+    });
 
-        <br />
+    console.log("📧 Email sent");
+    return res.status(200).json({ message: 'Email sent' });
 
-        <input
-          type="text"
-          placeholder="Enter MFA code"
-          value={code}
-          onChange={(e) => setCode(e.target.value)}
-          required
-          style={{ margin: '8px', padding: '8px' }}
-        />
-
-        <br />
-
-        <button type="submit" disabled={loading} style={{ padding: '10px 20px' }}>
-          {loading ? 'Verifying...' : 'Verify Code'}
-        </button>
-      </form>
-
-      {toastMessage && (
-        <div style={{ marginTop: '20px', color: toastMessage.includes('sent') ? 'green' : 'red' }}>
-          {toastMessage}
-        </div>
-      )}
-    </div>
-  );
+  } catch (err) {
+    console.error("💥 MFA send failed", err);
+    return res.status(500).json({ error: 'Internal server error' });
+  }
 }
-
-
