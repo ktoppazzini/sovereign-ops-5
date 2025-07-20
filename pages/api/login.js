@@ -53,9 +53,13 @@ export default function LoginPage() {
     });
 
     const data = await res.json();
+    console.log("MFA verify response:", res.status, data);
 
     if (res.status === 200) {
-      router.push("/dashboard");
+      setMessage("✅ Verification successful. Redirecting...");
+      setTimeout(() => {
+        router.push("/dashboard");
+      }, 1500);
     } else {
       setError(data.error || "Invalid verification code.");
     }
@@ -92,7 +96,7 @@ export default function LoginPage() {
         <>
           <input
             type="text"
-            placeholder="Enter MFA Code"
+            placeholder="Enter your verification code"
             value={mfaCode}
             onChange={(e) => setMfaCode(e.target.value)}
             style={inputStyle}
@@ -103,8 +107,8 @@ export default function LoginPage() {
         </>
       )}
 
-      {message && <p style={{ color: "green", marginTop: "1rem" }}>✅ {message}</p>}
-      {error && <p style={{ color: "red", marginTop: "1rem" }}>❌ {error}</p>}
+      {message && <p style={{ color: "green", marginTop: "1rem" }}>{message}</p>}
+      {error && <p style={{ color: "red", marginTop: "1rem" }}>{error}</p>}
     </div>
   );
 }
@@ -128,4 +132,3 @@ const buttonStyle = {
   cursor: "pointer",
   fontWeight: "bold",
 };
-
