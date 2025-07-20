@@ -1,13 +1,14 @@
-// pages/login.js
 import { useState } from 'react';
+import { useRouter } from 'next/router';
 
 export default function LoginPage() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [message, setMessage] = useState('');
+  const [error, setError] = useState('');
+  const router = useRouter();
 
   const handleSubmit = async (e) => {
-    e.preventDefault();
+    e.preventDefault(); // prevent default GET behavior
 
     try {
       const res = await fetch('/api/login', {
@@ -18,46 +19,42 @@ export default function LoginPage() {
 
       const data = await res.json();
 
-      if (res.ok) {
-        setMessage(`✅ ${data.message}`);
+      if (!res.ok) {
+        setError(data.message || 'Login failed');
       } else {
-        setMessage(`❌ ${data.message}`);
+        // You can redirect or set session here
+        router.push('/'); // Redirect to homepage or dashboard
       }
     } catch (err) {
-      console.error('Error:', err);
-      setMessage('❌ Something went wrong.');
+      console.error('Login error:', err);
+      setError('Something went wrong.');
     }
   };
 
   return (
-    <div style={{ padding: '2rem', maxWidth: '400px', margin: 'auto' }}>
+    <div>
       <h2>Secure Login</h2>
-
       <form onSubmit={handleSubmit}>
         <input
           type="email"
-          required
           placeholder="Email"
           value={email}
           onChange={(e) => setEmail(e.target.value)}
-          style={{ width: '100%', marginBottom: '1rem' }}
+          required
         />
-
+        <br />
         <input
           type="password"
-          required
           placeholder="Password"
           value={password}
           onChange={(e) => setPassword(e.target.value)}
-          style={{ width: '100%', marginBottom: '1rem' }}
+          required
         />
-
-        <button type="submit" style={{ width: '100%' }}>
-          Login
-        </button>
+        <br />
+        <button type="submit">Login</button>
       </form>
-
-      {message && <p style={{ marginTop: '1rem' }}>{message}</p>}
+      {error && <p style={{ color: 'red' }}>❌ {error}</p>}
     </div>
   );
 }
+
