@@ -63,7 +63,7 @@ export default function LoginPage() {
 
   return (
     <div style={{ padding: "2rem", textAlign: "center", maxWidth: "400px", margin: "auto" }}>
-      <Image src="/images/secure.png" alt="Secure Login" width={150} height={150} />
+      <Image src="/secure.png" alt="Secure Login" width={150} height={150} />
       <h2 style={{ marginTop: "1rem" }}>Secure Login</h2>
 
       {step === 1 ? (
