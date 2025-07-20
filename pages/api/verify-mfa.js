@@ -1,17 +1,20 @@
-// pages/api/verify-mfa.js
-
-import nodemailer from 'nodemailer';
-import twilio from 'twilio';
+// pages/api/verify-code.js
 
 export default async function handler(req, res) {
   if (req.method !== 'POST') {
+    console.log("[❌] Invalid method:", req.method);
     return res.status(405).json({ error: 'Method not allowed' });
   }
 
-  const { email } = req.body;
+  const { email, code } = req.body;
 
-  if (!email) {
-    return res.status(400).json({ error: 'Missing email address' });
+  console.log("[📥] Incoming MFA verification");
+  console.log("Email:", email);
+  console.log("Code:", code);
+
+  if (!email || !code) {
+    console.log("[⚠️] Missing email or code in request body");
+    return res.status(400).json({ error: 'Missing email or code' });
   }
 
   try {
@@ -19,9 +22,9 @@ export default async function handler(req, res) {
     const baseId = process.env.AIRTABLE_BASE_ID;
     const tableName = 'Users';
 
-    const url = `https://api.airtable.com/v0/${baseId}/${tableName}?filterByFormula={Email}="${email}"`;
+    const userLookupUrl = `https://api.airtable.com/v0/${baseId}/${tableName}?filterByFormula={Email}="${email}"`;
 
-    const response = await fetch(url, {
+    const response = await fetch(userLookupUrl, {
       headers: {
         Authorization: `Bearer ${airtableApiKey}`,
         'Content-Type': 'application/json',
@@ -31,69 +34,66 @@ export default async function handler(req, res) {
     const data = await response.json();
 
     if (!data.records || data.records.length === 0) {
+      console.log("[❌] No user found for:", email);
       return res.status(404).json({ error: 'User not found' });
     }
 
     const record = data.records[0];
-    const user = record.fields;
-    const deliveryMethod = user['MFA Code'] || 'email';
-    const userPhone = user['Phone number']?.toString().replace(/\D/g, '');
-    const formattedPhone = `+1${userPhone}`;
-    const mfaCode = Math.floor(100000 + Math.random() * 900000).toString();
+    const userFields = record.fields;
+    const storedCode = userFields['Last MFA Code'];
+    const storedTimestamp = userFields['Code Timestamp'];
 
-    // Save MFA code to Airtable
-    await fetch(`https://api.airtable.com/v0/${baseId}/${tableName}/${record.id}`, {
-      method: "PATCH",
+    if (!storedCode) {
+      console.log("[❌] No code stored for user");
+      return res.status(400).json({ error: 'No verification code stored' });
+    }
+
+    const trimmedCode = code.toString().trim();
+    const trimmedStoredCode = storedCode.toString().trim();
+
+    console.log("[🔍] Comparing codes → Submitted:", trimmedCode, "Stored:", trimmedStoredCode);
+
+    if (trimmedCode !== trimmedStoredCode) {
+      console.log("[❌] Invalid code");
+      return res.status(401).json({ error: 'Invalid verification code' });
+    }
+
+    // Optional: Validate that code is not older than 10 minutes
+    if (storedTimestamp) {
+      const sentTime = new Date(storedTimestamp);
+      const now = new Date();
+      const diffMinutes = Math.floor((now - sentTime) / 1000 / 60);
+
+      if (diffMinutes > 10) {
+        console.log("[⏰] Code expired:", diffMinutes, "minutes ago");
+        return res.status(403).json({ error: 'Verification code expired' });
+      }
+    }
+
+    // Clear the code from Airtable after success
+    const clearUrl = `https://api.airtable.com/v0/${baseId}/${tableName}/${record.id}`;
+    const clearResponse = await fetch(clearUrl, {
+      method: 'PATCH',
       headers: {
         Authorization: `Bearer ${airtableApiKey}`,
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
         fields: {
-          "Last MFA Code": mfaCode,
-          "Code Timestamp": new Date().toISOString(),
-        }
+          "Last MFA Code": "",
+          "Code Timestamp": "",
+        },
       }),
     });
 
-    if (deliveryMethod === 'SMS') {
-      try {
-        const client = twilio(process.env.TWILIO_SID, process.env.TWILIO_TOKEN);
+    const clearData = await clearResponse.json();
+    console.log("[🧹] Cleared MFA code for user:", clearData.id);
 
-        await client.messages.create({
-          body: `Your Sovereign OPS login code is: ${mfaCode}`,
-          from: process.env.TWILIO_PHONE,
-          to: formattedPhone,
-        });
-
-        return res.status(200).json({ message: 'Check your texts for the verification code.' });
-      } catch (err) {
-        console.error('❌ SMS Error:', err);
-        return res.status(500).json({ error: 'Failed to send text message' });
-      }
-    }
-
-    // fallback or email delivery
-    const transporter = nodemailer.createTransport({
-      service: 'gmail',
-      auth: {
-        user: process.env.EMAIL_FROM,
-        pass: process.env.EMAIL_PASSWORD,
-      },
-    });
-
-    await transporter.sendMail({
-      from: process.env.EMAIL_FROM,
-      to: email,
-      subject: 'Your Sovereign OPS Verification Code',
-      text: `Your code is: ${mfaCode}`,
-    });
-
-    return res.status(200).json({ message: 'Check your email for the verification code.' });
+    console.log("[✅] MFA code verified successfully — sending success");
+    return res.status(200).json({ success: true });
 
   } catch (error) {
-    console.error('MFA error:', error);
-    return res.status(500).json({ error: 'Failed to send MFA code' });
+    console.error("[🔥] Server error in verify-code.js:", error);
+    return res.status(500).json({ error: 'Server error verifying code' });
   }
 }
-
