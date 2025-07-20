@@ -13,15 +13,21 @@ export default function LoginPage() {
   const router = useRouter();
 
   useEffect(() => {
-    console.log("Current email:", email);
+    console.log(`[🧠 useEffect] Email state: ${email}`);
   }, [email]);
+
+  const log = (label, data) => {
+    console.log(`[🧩 ${new Date().toISOString()}] ${label}`, data);
+  };
 
   const handleLogin = async () => {
     setError("");
     setMessage("");
+    log("Login attempt", { email, password });
 
     if (!email || !password) {
       setError("Email and password required.");
+      alert("Missing login fields");
       return;
     }
 
@@ -32,21 +38,27 @@ export default function LoginPage() {
     });
 
     const data = await res.json();
+    log("Login API response", { status: res.status, data });
 
     if (res.status === 200) {
-      const result = await fetch("/api/verify-mfa", {
+      const verifyRes = await fetch("/api/verify-mfa", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email }),
-      }).then(res => res.json());
+      });
 
-      if (result.message) {
-        setMessage(result.message);
+      const verifyData = await verifyRes.json();
+      log("MFA Send Response", { status: verifyRes.status, verifyData });
+
+      if (verifyData.message) {
+        setMessage(verifyData.message);
         setStep(2);
       } else {
-        setError(result.error || "Failed to send verification code.");
+        alert("MFA failed");
+        setError(verifyData.error || "Failed to send verification code.");
       }
     } else {
+      alert("Login failed");
       setError(data.error || "Invalid email or password.");
     }
   };
@@ -55,9 +67,10 @@ export default function LoginPage() {
     setError("");
     setMessage("");
 
-    console.log("🔐 Submitting:", { email, mfaCode });
+    log("Verify Code Submit", { email, mfaCode });
 
     if (!email || !mfaCode) {
+      alert("Missing email or MFA code");
       setError("Missing email or code");
       return;
     }
@@ -68,15 +81,28 @@ export default function LoginPage() {
       body: JSON.stringify({ email, code: mfaCode }),
     });
 
-    const data = await res.json();
-    console.log("📥 verify-code response", res.status, data);
+    let data;
+    try {
+      data = await res.json();
+    } catch (err) {
+      log("Response parse error", err);
+      alert("Could not parse verify-code response");
+      setError("Invalid server response");
+      return;
+    }
 
-    if (res.status === 200) {
+    log("Verify API response", { status: res.status, data });
+
+    if (res.status === 200 && data.success) {
       setMessage("✅ Verification successful. Redirecting...");
+      alert("MFA success — redirecting");
+
       setTimeout(() => {
+        log("Redirecting to", "/dashboard");
         router.push("/dashboard");
-      }, 1500);
+      }, 1000);
     } else {
+      alert("MFA failed");
       setError(data.error || "Invalid verification code.");
     }
   };
