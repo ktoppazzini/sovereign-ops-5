@@ -1,0 +1,12 @@
+.container {
+  padding: 2rem;
+  text-align: center;
+}
+
+.success {
+  color: green;
+}
+
+.error {
+  color: red;
+}
