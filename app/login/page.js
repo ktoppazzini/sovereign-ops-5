@@ -63,7 +63,9 @@ export default function LoginPage() {
 
   return (
     <div style={{ padding: "2rem", textAlign: "center", maxWidth: "400px", margin: "auto" }}>
-      <Img src="/secure.png" alt="Secure Login" width={150} height={150} />
+      <div style={{ marginBottom: "1rem" }}>
+        <Image src="/logo.png" alt="Sovereign Ops Logo" width={150} height={150} />
+      </div>
       <h2 style={{ marginTop: "1rem" }}>Secure Login</h2>
 
       {step === 1 ? (
@@ -126,4 +128,3 @@ const buttonStyle = {
   cursor: "pointer",
   fontWeight: "bold",
 };
-
