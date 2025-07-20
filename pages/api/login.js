@@ -14,9 +14,9 @@ export default async function handler(req, res) {
     const baseId = process.env.AIRTABLE_BASE_ID;
     const tableName = 'Users';
 
-    const lookupUrl = `https://api.airtable.com/v0/${baseId}/${tableName}?filterByFormula={Email}="${email}"`;
+    const url = `https://api.airtable.com/v0/${baseId}/${tableName}?filterByFormula={Email}="${email}"`;
 
-    const response = await fetch(lookupUrl, {
+    const response = await fetch(url, {
       headers: {
         Authorization: `Bearer ${airtableApiKey}`,
         'Content-Type': 'application/json',
@@ -24,22 +24,36 @@ export default async function handler(req, res) {
     });
 
     const data = await response.json();
-    const user = data.records?.[0];
 
-    if (!user) {
+    if (!data.records || data.records.length === 0) {
+      console.log("[❌] User not found:", email);
       return res.status(401).json({ error: 'Invalid credentials' });
     }
 
+    const user = data.records[0];
     const storedPassword = user.fields?.Password;
 
-    if (!storedPassword || storedPassword.trim() !== password.trim()) {
+    if (!storedPassword) {
+      console.log("[❌] No password stored in Airtable for user:", email);
       return res.status(401).json({ error: 'Invalid credentials' });
     }
 
+    // Normalize both inputs to string and trim spaces
+    const inputPassword = password.toString().trim();
+    const dbPassword = storedPassword.toString().trim();
+
+    if (inputPassword !== dbPassword) {
+      console.log(`[🔒] Password mismatch for ${email}`);
+      console.log("Entered:", inputPassword);
+      console.log("Stored:", dbPassword);
+      return res.status(401).json({ error: 'Invalid credentials' });
+    }
+
+    console.log("[✅] Login verified for", email);
     return res.status(200).json({ success: true });
 
-  } catch (err) {
-    console.error("[🔥 Login API error]", err);
+  } catch (error) {
+    console.error("[🔥] Login error:", error);
     return res.status(500).json({ error: 'Internal server error' });
   }
 }
