@@ -2,7 +2,6 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
-<Image src="/images/secure.png" alt="Secure" width={150} height={150} /> // ✅ This must exist in /public/images/
 
 export default function LoginPage() {
   const [email, setEmail] = useState("");
@@ -33,7 +32,7 @@ export default function LoginPage() {
       }).then(res => res.json());
 
       if (result.message) {
-        setMessage(result.message); // ← This will now say “Check your texts…” or “Check your email…”
+        setMessage(result.message);
         setStep(2);
       } else {
         setError(result.error || "Failed to send verification code.");
@@ -64,7 +63,7 @@ export default function LoginPage() {
 
   return (
     <div style={{ padding: "2rem", textAlign: "center", maxWidth: "400px", margin: "auto" }}>
-      <Image src={secureIcon} alt="Secure Login" width={150} height={150} />
+      <Image src="/images/secure.png" alt="Secure Login" width={150} height={150} />
       <h2 style={{ marginTop: "1rem" }}>Secure Login</h2>
 
       {step === 1 ? (
@@ -127,5 +126,4 @@ const buttonStyle = {
   cursor: "pointer",
   fontWeight: "bold",
 };
-
 
