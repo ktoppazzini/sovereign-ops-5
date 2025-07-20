@@ -1,3 +1,4 @@
+console.log("Comparing:", password, "WITH HASH:", storedHash);
 import { useState } from 'react';
 import { useRouter } from 'next/router';
 
