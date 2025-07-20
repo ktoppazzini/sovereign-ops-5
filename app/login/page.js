@@ -16,6 +16,11 @@ export default function LoginPage() {
     setError("");
     setMessage("");
 
+    if (!email || !password) {
+      setError("Email and password required.");
+      return;
+    }
+
     const res = await fetch("/api/login", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -45,6 +50,11 @@ export default function LoginPage() {
   const handleMfaSubmit = async () => {
     setError("");
     setMessage("");
+
+    if (!email || !mfaCode) {
+      setError("Missing email or code");
+      return;
+    }
 
     const res = await fetch("/api/verify-code", {
       method: "POST",
