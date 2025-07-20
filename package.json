@@ -1,19 +1,15 @@
 {
   "name": "sovereign-ops-5",
   "version": "1.0.0",
-  "description": "Sovereign OPS™ Reform Platform",
   "scripts": {
     "dev": "next dev",
     "build": "next build",
     "start": "next start"
   },
   "dependencies": {
-    "airtable": "^0.11.5",
-    "twilio": "^4.15.1",
+    "bcryptjs": "^2.4.3",
     "next": "13.4.10",
     "react": "18.2.0",
     "react-dom": "18.2.0"
-     "bcryptjs": "^2.4.3"
   }
 }
-
