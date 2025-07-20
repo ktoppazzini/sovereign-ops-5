@@ -10,23 +10,28 @@ export default function LoginPage() {
   const handleSubmit = async (e) => {
     e.preventDefault();
 
-    const res = await fetch('/api/login', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ email, password }),
-    });
+    try {
+      const res = await fetch('/api/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, password }),
+      });
 
-    const data = await res.json();
+      const data = await res.json();
 
-    if (!res.ok) {
-      setError(data.message || 'Login failed');
-    } else {
-      router.push('/'); // Redirect to dashboard or home
+      if (!res.ok) {
+        setError(data.message || 'Login failed');
+      } else {
+        router.push('/'); // Success redirect
+      }
+    } catch (err) {
+      console.error('Login error:', err);
+      setError('Something went wrong.');
     }
   };
 
   return (
-    <div style={{ textAlign: 'center', marginTop: '100px' }}>
+    <div>
       <h2>Secure Login</h2>
       <form onSubmit={handleSubmit}>
         <input
@@ -36,7 +41,7 @@ export default function LoginPage() {
           onChange={(e) => setEmail(e.target.value)}
           required
         />
-        <br /><br />
+        <br />
         <input
           type="password"
           placeholder="Password"
@@ -44,10 +49,11 @@ export default function LoginPage() {
           onChange={(e) => setPassword(e.target.value)}
           required
         />
-        <br /><br />
+        <br />
         <button type="submit">Login</button>
       </form>
       {error && <p style={{ color: 'red' }}>❌ {error}</p>}
     </div>
   );
 }
+
