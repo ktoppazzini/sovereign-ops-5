@@ -13,10 +13,10 @@ export default async function handler(req, res) {
 
   try {
     const airtableApiKey = process.env.AIRTABLE_API_KEY;
-    const baseId = process.env.AIRTABLE_BASE_ID; // Should be something like: app66DTFvdxGQKy4I
-    const tableId = process.env.AIRTABLE_USERS_TABLE_ID; // Should be something like: tblQv2xRDEFkD1VXr
+    const baseId = process.env.AIRTABLE_BASE_ID;
+    const tableName = 'Users';
 
-    const airtableUrl = `https://api.airtable.com/v0/${baseId}/${tableId}?filterByFormula={Email}="${email}"`;
+    const airtableUrl = `https://api.airtable.com/v0/${baseId}/${tableName}?filterByFormula={Email}="${email}"`;
 
     const response = await fetch(airtableUrl, {
       headers: {
@@ -46,11 +46,28 @@ export default async function handler(req, res) {
     }
 
     console.log("✅ Password verified");
-    return res.status(200).json({ error: 'Login successful', role: user.Role || 'User' });
+
+    // Check if user selected SMS or Email for MFA
+    const mfaMethod = (user.MFA_Method || '').toLowerCase(); // assuming column is "MFA_Method"
+    let deliveryMessage;
+
+    if (mfaMethod === 'sms') {
+      deliveryMessage = 'Text sent';
+    } else {
+      deliveryMessage = 'Email sent';
+    }
+
+    // 🛡️ You would trigger the actual MFA sending here...
+
+    return res.status(200).json({
+      message: deliveryMessage,
+      role: user.Role || 'User',
+    });
 
   } catch (err) {
     console.error("💥 Login error:", err);
     return res.status(500).json({ error: 'Internal server error' });
   }
 }
+
 
