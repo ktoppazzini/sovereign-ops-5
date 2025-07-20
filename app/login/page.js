@@ -1,6 +1,8 @@
 "use client";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import Image from "next/image";
+import secureIcon from "/images/secure.png"; // ✅ This must exist in /public/images/
 
 export default function LoginPage() {
   const [email, setEmail] = useState("");
@@ -31,10 +33,10 @@ export default function LoginPage() {
       }).then(res => res.json());
 
       if (result.message) {
-        setMessage(result.message);
+        setMessage(result.message); // ← This will now say “Check your texts…” or “Check your email…”
         setStep(2);
       } else {
-        setError(result.error || "Failed to send code.");
+        setError(result.error || "Failed to send verification code.");
       }
     } else {
       setError(data.error || "Invalid email or password.");
@@ -61,8 +63,9 @@ export default function LoginPage() {
   };
 
   return (
-    <div style={{ padding: "2rem", textAlign: "center" }}>
-      <h2>Secure Login</h2>
+    <div style={{ padding: "2rem", textAlign: "center", maxWidth: "400px", margin: "auto" }}>
+      <Image src={secureIcon} alt="Secure Login" width={150} height={150} />
+      <h2 style={{ marginTop: "1rem" }}>Secure Login</h2>
 
       {step === 1 ? (
         <>
@@ -71,16 +74,16 @@ export default function LoginPage() {
             placeholder="Email"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
-            style={{ display: "block", margin: "10px auto", padding: "8px" }}
+            style={inputStyle}
           />
           <input
             type="password"
             placeholder="Password"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
-            style={{ display: "block", margin: "10px auto", padding: "8px" }}
+            style={inputStyle}
           />
-          <button onClick={handleLogin} style={{ padding: "10px 20px" }}>
+          <button onClick={handleLogin} style={buttonStyle}>
             Login
           </button>
         </>
@@ -91,21 +94,38 @@ export default function LoginPage() {
             placeholder="Enter MFA Code"
             value={mfaCode}
             onChange={(e) => setMfaCode(e.target.value)}
-            style={{ display: "block", margin: "10px auto", padding: "8px" }}
+            style={inputStyle}
           />
-          <button onClick={handleMfaSubmit} style={{ padding: "10px 20px" }}>
+          <button onClick={handleMfaSubmit} style={buttonStyle}>
             Verify Code
           </button>
         </>
       )}
 
-      {message && <p style={{ color: "green" }}>{message}</p>}
-      {error && <p style={{ color: "red" }}>❌ {error}</p>}
+      {message && <p style={{ color: "green", marginTop: "1rem" }}>✅ {message}</p>}
+      {error && <p style={{ color: "red", marginTop: "1rem" }}>❌ {error}</p>}
     </div>
   );
 }
 
+const inputStyle = {
+  display: "block",
+  width: "100%",
+  margin: "10px 0",
+  padding: "10px",
+  fontSize: "16px",
+  borderRadius: "5px",
+  border: "1px solid #ccc",
+};
 
-
+const buttonStyle = {
+  backgroundColor: "#0a2540",
+  color: "#fff",
+  padding: "10px 20px",
+  border: "none",
+  borderRadius: "5px",
+  cursor: "pointer",
+  fontWeight: "bold",
+};
 
 
