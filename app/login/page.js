@@ -1,128 +1,110 @@
-'use client'
-import { useState } from 'react'
-import translations from '../../translations'
+// pages/login/page.js
 
-export default function LoginPage() {
-  const [lang, setLang] = useState('en')
-  const t = translations[lang]
-  const [email, setEmail] = useState('')
-  const [password, setPassword] = useState('')
-  const [mfa, setMfa] = useState('')
-  const [status, setStatus] = useState('')
-  const [step, setStep] = useState('login')
+"use client";
+import { useState } from "react";
+import { useRouter } from "next/navigation";
+import Image from "next/image";
+import secureIcon from "@/public/images/secure.png";
+import styles from "./login.module.css"; // or your preferred styling method
 
-  const logAttempt = async (result) => {
-    await fetch('/api/log-login', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        email,
-        method: step === 'login' ? 'Password' : 'MFA',
-        result,
-        timestamp: new Date().toISOString()
-      })
-    })
-  }
+export default function Login() {
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [step, setStep] = useState(1); // 1 = login form, 2 = MFA input
+  const [mfaCode, setMfaCode] = useState("");
+  const [message, setMessage] = useState("");
+  const [error, setError] = useState("");
+  const router = useRouter();
 
-  const handleLogin = async (e) => {
-    e.preventDefault()
-    setStatus('🔐 Checking credentials...')
-    try {
-      const res = await fetch('/api/login', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, password })
-      })
-      const data = await res.json()
-      if (res.ok) {
-        await logAttempt('Success')
-        setStatus('📲 MFA sent. Please enter the code.')
-        setStep('mfa')
+  const handleLogin = async () => {
+    setError("");
+    setMessage("");
+
+    const res = await fetch("/api/login", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email, password }),
+    });
+
+    const data = await res.json();
+
+    if (res.status === 200) {
+      // Successful password check – trigger MFA
+      const result = await fetch("/api/verify-mfa", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email }),
+      }).then(res => res.json());
+
+      if (result.message) {
+        setMessage(result.message); // Shows “Check your texts…” or “Check your email…”
+        setStep(2); // Proceed to MFA step
       } else {
-        await logAttempt('Failed')
-        setStatus(`❌ ${data.error}`)
+        setError(result.error || "Failed to send code.");
       }
-    } catch (err) {
-      console.error(err)
-      await logAttempt('Error')
-      setStatus('❌ Server error.')
+    } else {
+      setError(data.error || "Invalid login.");
     }
-  }
+  };
 
-  const handleVerifyMfa = async (e) => {
-    e.preventDefault()
-    setStatus('🔍 Verifying MFA...')
-    try {
-      const res = await fetch('/api/verify-mfa', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, mfa })
-      })
-      const data = await res.json()
-      if (res.ok) {
-        await logAttempt('Success')
-        localStorage.setItem('session', JSON.stringify({ email, role: data.role }))
-        setStatus('✅ Login successful. Redirecting...')
-        setTimeout(() => {
-          window.location.href = data.role === 'Admin' ? '/admin' : '/dashboard'
-        }, 1200)
-      } else {
-        await logAttempt('Failed')
-        setStatus(`❌ ${data.error}`)
-      }
-    } catch (err) {
-      await logAttempt('Error')
-      setStatus('❌ Server error verifying MFA.')
+  const handleMfaSubmit = async () => {
+    setError("");
+    setMessage("");
+
+    const res = await fetch("/api/verify-code", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email, code: mfaCode }),
+    });
+
+    const data = await res.json();
+
+    if (res.status === 200) {
+      router.push("/dashboard");
+    } else {
+      setError(data.error || "Invalid verification code.");
     }
-  }
-
-  const inputStyle = {
-    width: '100%', padding: '0.75rem', marginBottom: '1rem',
-    borderRadius: '6px', border: '1px solid #ccc', fontSize: '1rem'
-  }
+  };
 
   return (
-    <main style={{
-      padding: '2rem', fontFamily: 'Arial', backgroundColor: '#fff',
-      color: '#0a2447', maxWidth: '400px', margin: 'auto', marginTop: '4rem', textAlign: 'center'
-    }}>
-      <img src="/logo.png" alt="Sovereign OPS Logo" style={{ width: '160px', marginBottom: '2rem' }} />
-      <div style={{ marginBottom: '1rem', textAlign: 'right' }}>
-        <button onClick={() => setLang(lang === 'en' ? 'fr' : 'en')}>
-          {lang === 'en' ? 'FR' : 'EN'}
-        </button>
-      </div>
-      <h2 style={{ marginBottom: '2rem' }}>{lang === 'en' ? 'Secure Login' : 'Connexion sécurisée'}</h2>
+    <div className={styles.container}>
+      <Image src={secureIcon} alt="Secure" width={100} height={100} />
+      <h2>Secure Login</h2>
 
-      {step === 'login' ? (
-        <form onSubmit={handleLogin}>
-          <input style={inputStyle} type="email" placeholder="Email" value={email} onChange={e => setEmail(e.target.value)} required />
-          <input style={inputStyle} type="password" placeholder="Password" value={password} onChange={e => setPassword(e.target.value)} required />
-          <button type="submit" style={{
-            backgroundColor: '#0a2447', color: 'white', padding: '0.75rem 1.5rem',
-            border: 'none', borderRadius: '5px', cursor: 'pointer', fontSize: '1rem'
-          }}>
-            {lang === 'en' ? 'Login' : 'Connexion'}
-          </button>
-        </form>
+      {step === 1 ? (
+        <>
+          <input
+            type="email"
+            placeholder="Enter email"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+          />
+          <input
+            type="password"
+            placeholder="Enter password"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+          />
+          <button onClick={handleLogin}>Login</button>
+        </>
       ) : (
-        <form onSubmit={handleVerifyMfa}>
-          <input style={inputStyle} type="text" placeholder="Enter MFA Code" value={mfa} onChange={e => setMfa(e.target.value)} required />
-          <button type="submit" style={{
-            backgroundColor: '#0a2447', color: 'white', padding: '0.75rem 1.5rem',
-            border: 'none', borderRadius: '5px', cursor: 'pointer', fontSize: '1rem'
-          }}>
-            {lang === 'en' ? 'Verify Code' : 'Vérifier le code'}
-          </button>
-        </form>
+        <>
+          <input
+            type="text"
+            placeholder="Enter MFA Code"
+            value={mfaCode}
+            onChange={(e) => setMfaCode(e.target.value)}
+          />
+          <button onClick={handleMfaSubmit}>Verify Code</button>
+        </>
       )}
 
-      <p style={{ marginTop: '1rem', color: status.includes('✅') ? 'green' : 'red' }}>
-        {status}
-      </p>
-    </main>
-  )
+      {message && <p className={styles.success}>{message}</p>}
+      {error && <p className={styles.error}>❌ {error}</p>}
+    </div>
+  );
 }
+
 
 
 
