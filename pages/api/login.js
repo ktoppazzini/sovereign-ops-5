@@ -1,5 +1,9 @@
 import bcrypt from 'bcryptjs';
 
+console.log("Entered password:", password);
+console.log("Stored hash:", storedHash);
+
+
 export default async function handler(req, res) {
   if (req.method !== 'POST') {
     return res.status(405).json({ message: 'Method Not Allowed' });
