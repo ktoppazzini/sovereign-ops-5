@@ -1,5 +1,5 @@
 "use client";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
 
@@ -11,6 +11,10 @@ export default function LoginPage() {
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
   const router = useRouter();
+
+  useEffect(() => {
+    console.log("Current email:", email);
+  }, [email]);
 
   const handleLogin = async () => {
     setError("");
@@ -50,6 +54,8 @@ export default function LoginPage() {
   const handleMfaSubmit = async () => {
     setError("");
     setMessage("");
+
+    console.log("🔐 Submitting:", { email, mfaCode });
 
     if (!email || !mfaCode) {
       setError("Missing email or code");
