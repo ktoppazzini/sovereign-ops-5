@@ -52,46 +52,55 @@ export default async function handler(req, res) {
       return res.status(401).json({ error: 'Invalid verification code' });
     }
 
-    // Optional: code expiry
+    // Optional: validate expiration (10 minutes)
     if (storedTimestamp) {
       const now = new Date();
       const sentTime = new Date(storedTimestamp);
       const ageMinutes = Math.floor((now - sentTime) / 60000);
 
       if (ageMinutes > 10) {
-        console.log("[⏰] Code expired");
+        console.log("[⏰] Code expired:", ageMinutes, "minutes");
         return res.status(403).json({ error: 'Verification code expired' });
       }
     }
 
-    // Clear code
-    await fetch(`https://api.airtable.com/v0/${baseId}/${tableName}/${record.id}`, {
+    // ✅ Smart PATCH with debug
+    console.log("[🧹] Clearing MFA code for record:", record.id);
+
+    const patchFields = {};
+    if ('Last MFA Code' in userFields) patchFields['Last MFA Code'] = "";
+    if ('Code Timestamp' in userFields) patchFields['Code Timestamp'] = "";
+
+    const patchRes = await fetch(`https://api.airtable.com/v0/${baseId}/${tableName}/${record.id}`, {
       method: 'PATCH',
       headers: {
         Authorization: `Bearer ${airtableApiKey}`,
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify({
-        fields: {
-          "Last MFA Code": "",
-          "Code Timestamp": "",
-        },
-      }),
+      body: JSON.stringify({ fields: patchFields }),
     });
 
-    console.log("[✅] Code verified and cleared — sending success");
+    const patchData = await patchRes.json();
+
+    if (!patchRes.ok) {
+      console.error("[❌ Airtable PATCH failed]", patchData);
+      return res.status(500).json({ error: "Failed to clear code in Airtable", detail: patchData });
+    }
+
+    console.log("[✅] Code verified and cleared. Returning success.");
     return res.status(200).json({ success: true });
 
   } catch (err) {
-    console.error("[🔥 ERROR in verify-code.js]", err);
+    console.error("[🔥 Uncaught error in verify-code.js]", err);
 
+    // Ensure response is always valid JSON
     try {
-      return res.status(500).json({ error: 'Internal server error' });
+      return res.status(500).json({ error: 'Server error verifying code' });
     } catch {
-      // Fallback if res.json fails
       res.writeHead(500, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify({ error: 'Fatal response error' }));
     }
   }
 }
+
 
