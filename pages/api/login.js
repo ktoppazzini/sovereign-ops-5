@@ -1,9 +1,5 @@
 import bcrypt from 'bcryptjs';
 
-console.log("Entered password:", password);
-console.log("Stored hash:", storedHash);
-
-
 export default async function handler(req, res) {
   if (req.method !== 'POST') {
     return res.status(405).json({ message: 'Method Not Allowed' });
@@ -42,6 +38,10 @@ export default async function handler(req, res) {
     const user = result.records[0].fields;
     const storedHash = user.auth_token_key;
 
+    // ✅ MOVE THESE LOGS HERE
+    console.log("Entered password:", password);
+    console.log("Stored hash:", storedHash);
+
     // ✅ Compare submitted password with stored hash
     const match = await bcrypt.compare(password, storedHash);
 
@@ -49,10 +49,10 @@ export default async function handler(req, res) {
       return res.status(401).json({ message: 'Invalid credentials' });
     }
 
-    // ✅ Success
     return res.status(200).json({ message: 'Login successful', user: { email: user.email } });
   } catch (error) {
     console.error('Login error:', error);
     return res.status(500).json({ message: 'Internal Server Error', details: error.message });
   }
 }
+
