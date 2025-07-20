@@ -1,10 +1,5 @@
-import { sendEmail } from "@/utils/sendEmail"; // Replace with actual path if different
 import twilio from "twilio";
-
-const accountSid = process.env.TWILIO_ACCOUNT_SID;
-const authToken = process.env.TWILIO_AUTH_TOKEN;
-const twilioPhone = process.env.TWILIO_PHONE;
-const client = twilio(accountSid, authToken);
+import nodemailer from "nodemailer";
 
 export default async function handler(req, res) {
   if (req.method !== "POST") {
@@ -18,38 +13,51 @@ export default async function handler(req, res) {
   }
 
   try {
-    let sentMessage = "";
+    let deliveryMessage = "";
 
     if (mfaMethod === "SMS") {
-      if (!phoneNumber || phoneNumber === twilioPhone) {
-        return res.status(400).json({ error: "Invalid phone number for SMS." });
-      }
+      const client = twilio(process.env.TWILIO_ACCOUNT_SID, process.env.TWILIO_AUTH_TOKEN);
 
-      await client.messages.create({
-        body: `Your Sovereign OPS™ login code is: ${mfaCode}`,
-        from: twilioPhone,
-        to: `+1${phoneNumber}`,
+      const twilioResponse = await client.messages.create({
+        body: `Your Sovereign OPS™ security code is: ${mfaCode}`,
+        from: process.env.TWILIO_PHONE_NUMBER,
+        to: phoneNumber,
       });
 
-      sentMessage = "Text sent";
-      console.log(`📱 MFA SMS sent to ${phoneNumber}`);
-    } else {
-      // Assume email if not SMS
-      await sendEmail({
+      console.log("✅ SMS sent:", twilioResponse.sid);
+      deliveryMessage = "Text sent";
+
+    } else if (mfaMethod === "email") {
+      const transporter = nodemailer.createTransport({
+        service: "gmail",
+        auth: {
+          user: process.env.EMAIL_USERNAME,
+          pass: process.env.EMAIL_PASSWORD,
+        },
+      });
+
+      const mailOptions = {
+        from: `"Sovereign OPS™ Security" <${process.env.EMAIL_USERNAME}>`,
         to: email,
-        subject: "Your Sovereign OPS™ Login Code",
-        text: `Your login code is: ${mfaCode}`,
-      });
+        subject: "Your Sovereign OPS™ Security Code",
+        text: `Your one-time login code is: ${mfaCode}`,
+      };
 
-      sentMessage = "Email sent";
-      console.log(`📧 MFA email sent to ${email}`);
+      const info = await transporter.sendMail(mailOptions);
+      console.log("✅ Email sent:", info.messageId);
+      deliveryMessage = "Email sent";
+
+    } else {
+      return res.status(400).json({ error: "Invalid MFA method." });
     }
 
-    return res.status(200).json({ message: sentMessage });
+    return res.status(200).json({ message: deliveryMessage });
+
   } catch (err) {
-    console.error("💥 MFA Send Error:", err.message);
-    return res.status(500).json({ error: "MFA delivery failed." });
+    console.error("❌ Error sending MFA code:", err);
+    return res.status(500).json({ error: "Internal server error." });
   }
 }
+
 
 
