@@ -53,7 +53,7 @@ export default function LoginPage() {
     });
 
     const data = await res.json();
-    console.log("MFA verify response:", res.status, data);
+    console.log("📥 verify-code response", res.status, data);
 
     if (res.status === 200) {
       setMessage("✅ Verification successful. Redirecting...");
@@ -132,4 +132,5 @@ const buttonStyle = {
   cursor: "pointer",
   fontWeight: "bold",
 };
+
 
