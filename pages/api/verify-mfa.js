@@ -1,63 +1,80 @@
-import twilio from "twilio";
-import nodemailer from "nodemailer";
+import { useState } from 'react';
 
-export default async function handler(req, res) {
-  if (req.method !== "POST") {
-    return res.status(405).json({ error: "Method not allowed" });
-  }
+export default function VerifyMFA() {
+  const [code, setCode] = useState('');
+  const [email, setEmail] = useState('');
+  const [toastMessage, setToastMessage] = useState('');
+  const [loading, setLoading] = useState(false);
 
-  const { email, mfaMethod, phoneNumber, mfaCode } = req.body;
+  const handleVerify = async (e) => {
+    e.preventDefault();
+    setLoading(true);
+    setToastMessage('');
 
-  if (!email || !mfaMethod || !mfaCode) {
-    return res.status(400).json({ error: "Missing required fields." });
-  }
-
-  try {
-    let deliveryMessage = "";
-
-    if (mfaMethod === "SMS") {
-      const client = twilio(process.env.TWILIO_ACCOUNT_SID, process.env.TWILIO_AUTH_TOKEN);
-
-      const twilioResponse = await client.messages.create({
-        body: `Your Sovereign OPS™ security code is: ${mfaCode}`,
-        from: process.env.TWILIO_PHONE_NUMBER,
-        to: phoneNumber,
-      });
-
-      console.log("✅ SMS sent:", twilioResponse.sid);
-      deliveryMessage = "Text sent";
-
-    } else if (mfaMethod === "email") {
-      const transporter = nodemailer.createTransport({
-        service: "gmail",
-        auth: {
-          user: process.env.EMAIL_USERNAME,
-          pass: process.env.EMAIL_PASSWORD,
+    try {
+      const response = await fetch('/api/verify-mfa', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
         },
+        body: JSON.stringify({ email, code }),
       });
 
-      const mailOptions = {
-        from: `"Sovereign OPS™ Security" <${process.env.EMAIL_USERNAME}>`,
-        to: email,
-        subject: "Your Sovereign OPS™ Security Code",
-        text: `Your one-time login code is: ${mfaCode}`,
-      };
+      const result = await response.json();
 
-      const info = await transporter.sendMail(mailOptions);
-      console.log("✅ Email sent:", info.messageId);
-      deliveryMessage = "Email sent";
-
-    } else {
-      return res.status(400).json({ error: "Invalid MFA method." });
+      if (response.ok) {
+        // ✅ Show correct dynamic message from backend
+        setToastMessage(result.message || 'Verification successful');
+      } else {
+        setToastMessage(result.error || 'Verification failed');
+      }
+    } catch (error) {
+      console.error('Verification error:', error);
+      setToastMessage('Something went wrong');
+    } finally {
+      setLoading(false);
     }
+  };
 
-    return res.status(200).json({ message: deliveryMessage });
+  return (
+    <div style={{ textAlign: 'center', marginTop: '100px' }}>
+      <h2>Secure Login</h2>
 
-  } catch (err) {
-    console.error("❌ Error sending MFA code:", err);
-    return res.status(500).json({ error: "Internal server error." });
-  }
+      <form onSubmit={handleVerify}>
+        <input
+          type="email"
+          placeholder="Enter email"
+          value={email}
+          onChange={(e) => setEmail(e.target.value)}
+          required
+          style={{ margin: '8px', padding: '8px' }}
+        />
+
+        <br />
+
+        <input
+          type="text"
+          placeholder="Enter MFA code"
+          value={code}
+          onChange={(e) => setCode(e.target.value)}
+          required
+          style={{ margin: '8px', padding: '8px' }}
+        />
+
+        <br />
+
+        <button type="submit" disabled={loading} style={{ padding: '10px 20px' }}>
+          {loading ? 'Verifying...' : 'Verify Code'}
+        </button>
+      </form>
+
+      {toastMessage && (
+        <div style={{ marginTop: '20px', color: toastMessage.includes('sent') ? 'green' : 'red' }}>
+          {toastMessage}
+        </div>
+      )}
+    </div>
+  );
 }
-
 
 
