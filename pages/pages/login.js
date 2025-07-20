@@ -6,13 +6,14 @@ export default function LoginPage() {
   const [message, setMessage] = useState('');
 
   const handleSubmit = async (e) => {
-    e.preventDefault();
+    e.preventDefault(); // prevent page reload
+
+    console.log('Submitted email:', email);
+    console.log('Submitted password:', password);
 
     const response = await fetch('/api/login', {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ email, password }),
     });
 
@@ -26,27 +27,30 @@ export default function LoginPage() {
 
   return (
     <div style={{ padding: '2rem', maxWidth: '400px', margin: 'auto' }}>
-      <h1>Sovereign Ops Login</h1>
+      <h2>Secure Login</h2>
       <form onSubmit={handleSubmit}>
         <input
           type="email"
           placeholder="Email"
+          required
           value={email}
           onChange={(e) => setEmail(e.target.value)}
-          required
           style={{ width: '100%', marginBottom: '1rem' }}
         />
         <input
           type="password"
           placeholder="Password"
+          required
           value={password}
           onChange={(e) => setPassword(e.target.value)}
-          required
           style={{ width: '100%', marginBottom: '1rem' }}
         />
-        <button type="submit">Login</button>
+        <button type="submit" style={{ width: '100%' }}>
+          Login
+        </button>
       </form>
-      {message && <p>{message}</p>}
+      {message && <p style={{ marginTop: '1rem' }}>{message}</p>}
     </div>
   );
 }
+
