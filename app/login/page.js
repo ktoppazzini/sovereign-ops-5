@@ -1,17 +1,12 @@
-// pages/login/page.js
-
 "use client";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import Image from "next/image";
-import secureIcon from "@/public/images/secure.png";
-import styles from "./login.module.css"; // or your preferred styling method
 
-export default function Login() {
+export default function LoginPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [step, setStep] = useState(1); // 1 = login form, 2 = MFA input
   const [mfaCode, setMfaCode] = useState("");
+  const [step, setStep] = useState(1);
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
   const router = useRouter();
@@ -29,7 +24,6 @@ export default function Login() {
     const data = await res.json();
 
     if (res.status === 200) {
-      // Successful password check – trigger MFA
       const result = await fetch("/api/verify-mfa", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -37,13 +31,13 @@ export default function Login() {
       }).then(res => res.json());
 
       if (result.message) {
-        setMessage(result.message); // Shows “Check your texts…” or “Check your email…”
-        setStep(2); // Proceed to MFA step
+        setMessage(result.message);
+        setStep(2);
       } else {
         setError(result.error || "Failed to send code.");
       }
     } else {
-      setError(data.error || "Invalid login.");
+      setError(data.error || "Invalid email or password.");
     }
   };
 
@@ -67,25 +61,28 @@ export default function Login() {
   };
 
   return (
-    <div className={styles.container}>
-      <Image src={secureIcon} alt="Secure" width={100} height={100} />
+    <div style={{ padding: "2rem", textAlign: "center" }}>
       <h2>Secure Login</h2>
 
       {step === 1 ? (
         <>
           <input
             type="email"
-            placeholder="Enter email"
+            placeholder="Email"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
+            style={{ display: "block", margin: "10px auto", padding: "8px" }}
           />
           <input
             type="password"
-            placeholder="Enter password"
+            placeholder="Password"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
+            style={{ display: "block", margin: "10px auto", padding: "8px" }}
           />
-          <button onClick={handleLogin}>Login</button>
+          <button onClick={handleLogin} style={{ padding: "10px 20px" }}>
+            Login
+          </button>
         </>
       ) : (
         <>
@@ -94,16 +91,20 @@ export default function Login() {
             placeholder="Enter MFA Code"
             value={mfaCode}
             onChange={(e) => setMfaCode(e.target.value)}
+            style={{ display: "block", margin: "10px auto", padding: "8px" }}
           />
-          <button onClick={handleMfaSubmit}>Verify Code</button>
+          <button onClick={handleMfaSubmit} style={{ padding: "10px 20px" }}>
+            Verify Code
+          </button>
         </>
       )}
 
-      {message && <p className={styles.success}>{message}</p>}
-      {error && <p className={styles.error}>❌ {error}</p>}
+      {message && <p style={{ color: "green" }}>{message}</p>}
+      {error && <p style={{ color: "red" }}>❌ {error}</p>}
     </div>
   );
 }
+
 
 
 
