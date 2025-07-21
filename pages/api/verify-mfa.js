@@ -1,22 +1,26 @@
+import bcrypt from "bcryptjs";
+
 export default async function handler(req, res) {
   if (req.method !== "POST") {
     return res.status(405).json({ error: "Method not allowed" });
   }
 
-  const { email, code } = req.body;
+  const { email, password } = req.body;
 
-  if (!email || !code) {
-    return res.status(400).json({ error: "Missing email or code" });
+  if (!email || !password) {
+    console.warn("⚠️ Missing email or password");
+    return res.status(400).json({ error: "Missing email or password" });
   }
 
   const airtableApiKey = process.env.AIRTABLE_API_KEY;
   const baseId = process.env.AIRTABLE_BASE_ID;
   const tableName = "Users";
+  const loginLogTable = "Login Attempts";
 
   try {
-    const lowerEmail = email.toLowerCase();
-    const filterFormula = `LOWER({Email}) = "${lowerEmail}"`;
-    const userUrl = `https://api.airtable.com/v0/${baseId}/${tableName}?filterByFormula=${encodeURIComponent(filterFormula)}`;
+    console.log(`🔍 Looking up user by email: ${email}`);
+
+    const userUrl = `https://api.airtable.com/v0/${baseId}/${tableName}?filterByFormula={Email}="${email}"`;
 
     const userRes = await fetch(userUrl, {
       headers: {
@@ -25,52 +29,72 @@ export default async function handler(req, res) {
       },
     });
 
-    const data = await userRes.json();
+    const userData = await userRes.json();
 
-    if (!data.records || data.records.length === 0) {
-      return res.status(404).json({ error: "User not found" });
+    if (!userData.records || userData.records.length === 0) {
+      console.error(`❌ No user found: ${email}`);
+      await logAttempt(loginLogTable, baseId, airtableApiKey, email, false, "User not found");
+      return res.status(401).json({ error: "Invalid credentials" });
     }
 
-    const userRecord = data.records[0];
-    const fields = userRecord.fields;
+    const record = userData.records[0];
+    const fields = record.fields;
 
-    const storedCode = fields["mfa_code"];
-    const expiry = fields["mfa_code_expiry"];
-    const now = new Date();
-
-    if (!storedCode) {
-      return res.status(401).json({ error: "No code issued for this user." });
+    const storedHash = fields["auth_token_key"];
+    if (!storedHash) {
+      console.error(`❌ Missing password hash for ${email}`);
+      await logAttempt(loginLogTable, baseId, airtableApiKey, email, false, "Missing hash");
+      return res.status(401).json({ error: "Invalid credentials" });
     }
 
-    if (code !== storedCode) {
-      return res.status(401).json({ error: "Invalid code." });
+    const isMatch = await bcrypt.compare(password, storedHash);
+    console.log(`🔐 Password match result for ${email}: ${isMatch}`);
+
+    if (!isMatch) {
+      await logAttempt(loginLogTable, baseId, airtableApiKey, email, false, "Password mismatch");
+      return res.status(401).json({ error: "Invalid credentials" });
     }
 
-    if (expiry) {
-      const expiresAt = new Date(expiry);
-      if (now > expiresAt) {
-        return res.status(401).json({ error: "Code expired." });
-      }
-    }
+    await logAttempt(loginLogTable, baseId, airtableApiKey, email, true, "Login successful");
+    return res.status(200).json({ message: "Login successful" });
 
-    // Update user as verified
-    const patchUrl = `https://api.airtable.com/v0/${baseId}/${tableName}/${userRecord.id}`;
-    await fetch(patchUrl, {
-      method: "PATCH",
-      headers: {
-        Authorization: `Bearer ${airtableApiKey}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        fields: {
-          mfa_verified: true,
-        },
-      }),
-    });
-
-    return res.status(200).json({ message: "Verification successful." });
   } catch (err) {
-    console.error("🔒 MFA Verification Error:", err);
+    console.error("🔥 Unexpected login error:", err);
+    await logAttempt(loginLogTable, baseId, airtableApiKey, email, false, "Unexpected error");
     return res.status(500).json({ error: "Internal server error" });
   }
 }
+
+async function logAttempt(table, baseId, apiKey, email, success, notes) {
+  const now = new Date().toISOString(); // ISO is safest for Airtable
+
+  const payload = {
+    fields: {
+      Email: email,
+      Status: success ? "Success" : "Fail",
+      Notes: notes,
+      Timestamp: now,
+    },
+  };
+
+  try {
+    const logRes = await fetch(`https://api.airtable.com/v0/${baseId}/${table}`, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${apiKey}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(payload),
+    });
+
+    if (!logRes.ok) {
+      const err = await logRes.text();
+      console.warn(`⚠️ Logging failed: ${err}`);
+    } else {
+      console.log(`📝 Login attempt logged for ${email}`);
+    }
+  } catch (err) {
+    console.warn(`⚠️ Logging error (silent fail): ${err.message}`);
+  }
+}
+
