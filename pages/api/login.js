@@ -8,11 +8,14 @@ export default async function handler(req, res) {
   const { email, password } = req.body;
 
   console.log("📥 Email received:", email);
-  console.log("📥 Password received:", `"${password}"`);
+  console.log("📥 Raw password received:", `"${password}"`);
 
   if (!email || !password) {
     return res.status(400).json({ error: "Missing email or password" });
   }
+
+  const cleanedPassword = password.replace(/\s+/g, "").trim();
+  console.log("📥 Cleaned password used for comparison:", `"${cleanedPassword}"`);
 
   const airtableApiKey = process.env.AIRTABLE_API_KEY;
   const baseId = process.env.AIRTABLE_BASE_ID;
@@ -40,33 +43,32 @@ export default async function handler(req, res) {
     const record = userData.records[0];
     const storedHash = record.fields["auth_token_key"];
 
-    console.log("🔐 Stored bcrypt hash:", storedHash);
+    console.log("🔐 Stored bcrypt hash from Airtable:", storedHash);
 
     if (!storedHash) {
       await logAttempt(loginLogTable, baseId, airtableApiKey, email, "Fail", "Missing hash");
       return res.status(401).json({ error: "Invalid credentials" });
     }
 
-    const isMatch = await bcrypt.compare(password, storedHash);
+    const isMatch = await bcrypt.compare(cleanedPassword, storedHash);
     console.log("✅ Password match result (from Airtable):", isMatch);
 
-    // Compare to known-good hash
+    // Optional reference test for known-good 123456 hash
     const referenceHash = "$2a$12$FjIrrA.CfVwQgJNRBzy6x.6qB0BiAdcD5EJcZXp2ySr5C2RIwq/Ie";
-    const refMatch = await bcrypt.compare(password, referenceHash);
-    console.log("🧪 Match vs known-good '123456':", refMatch);
+    const isReferenceMatch = await bcrypt.compare(cleanedPassword, referenceHash);
+    console.log("🧪 Match vs known-good '123456':", isReferenceMatch);
 
     if (!isMatch) {
       await logAttempt(loginLogTable, baseId, airtableApiKey, email, "Fail", "Password mismatch");
       return res.status(401).json({ error: "Invalid credentials" });
     }
 
-    // ✅ Password OK — ready for MFA or dashboard
-    await logAttempt(loginLogTable, baseId, airtableApiKey, email, "Success", "Login success");
+    await logAttempt(loginLogTable, baseId, airtableApiKey, email, "Success", "Login successful");
     return res.status(200).json({ message: "Login successful" });
 
   } catch (err) {
-    console.error("🔥 Login error:", err);
-    await logAttempt(loginLogTable, baseId, airtableApiKey, email, "Fail", `Unhandled error: ${err.message}`);
+    console.error("🔥 Unexpected login error:", err);
+    await logAttempt(loginLogTable, baseId, airtableApiKey, email, "Fail", `Server error: ${err.message}`);
     return res.status(500).json({ error: "Internal server error" });
   }
 }
@@ -90,14 +92,15 @@ async function logAttempt(table, baseId, apiKey, email, status, notes) {
     });
 
     if (!res.ok) {
-      const text = await res.text();
-      console.warn("⚠️ Failed to log login attempt:", text);
+      const errorText = await res.text();
+      console.warn("⚠️ Failed to log attempt:", errorText);
     } else {
-      console.log("📝 Login attempt logged:", email, status);
+      console.log(`📝 Login attempt logged: ${email} ${status}`);
     }
   } catch (e) {
     console.warn("⚠️ Silent logging error:", e.message);
   }
 }
+
 
 
