@@ -1,12 +1,15 @@
-import { useEffect } from "react";
-import { useRouter } from "next/router";
+// pages/index.js
+
+import { useEffect } from 'react';
+import { useRouter } from 'next/router';
 
 export default function IndexRedirect() {
   const router = useRouter();
 
   useEffect(() => {
-    router.replace("/login");
+    router.replace('/login');
   }, [router]);
 
   return null;
 }
+
