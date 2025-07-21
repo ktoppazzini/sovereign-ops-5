@@ -1,192 +1,127 @@
-'use client'
-import { useState, useEffect } from 'react'
-import translations from '../translations'
+'use client';
+import { useState } from 'react';
 
-export default function Home() {
-  const [status, setStatus] = useState('')
-  const [lang, setLang] = useState('en')
-  const [countries, setCountries] = useState([])
-  const [tiers, setTiers] = useState([])
-  const [sizes, setSizes] = useState([])
-  const [timeFrames, setTimeFrames] = useState([])
+export default function LoginPage() {
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [mfaCode, setMfaCode] = useState('');
+  const [stage, setStage] = useState('login'); // 'login' or 'mfa'
+  const [error, setError] = useState('');
+  const [loading, setLoading] = useState(false);
 
-  const t = translations[lang]
-
-  useEffect(() => {
-    async function fetchOptions() {
-      const resCountries = await fetch('/api/options/countries')
-      const countriesData = await resCountries.json()
-
-      const resTiers = await fetch('/api/options/tiers')
-      const tiersData = await resTiers.json()
-
-      const resSizes = await fetch('/api/options/company-sizes')
-      const sizesData = await resSizes.json()
-
-      const resTimeFrames = await fetch('/api/options/implementation-timeframes')
-      const timeFramesData = await resTimeFrames.json()
-
-      setCountries(countriesData.options || [])
-      setTiers(tiersData.options || [])
-      setSizes(sizesData.options || [])
-      setTimeFrames(timeFramesData.options || [])
-    }
-
-    fetchOptions()
-  }, [])
-
-  const handleSubmit = async (e) => {
-    e.preventDefault()
-
-    const payload = {
-      organization: e.target.organization.value,
-      country: e.target.country.value,
-      tier: e.target.tier.value,
-      company_size: e.target.companySize.value,
-      goal: e.target.goal.value,
-      desired_outcome: e.target.desiredOutcome.value,
-      cost_savings_goal: e.target.cost.value,
-      implementation_time_frame: e.target.timeFrame.value,
-      report_content: e.target.report.value
-    }
+  const handleLogin = async () => {
+    setError('');
+    setLoading(true);
 
     try {
-      // Save to Airtable
-      const airtableRes = await fetch('https://hook.us2.make.com/qf0i3v8ufv007x1414n2p2o3676j46in', {
+      console.log("🔐 Attempting login with:", email);
+      const res = await fetch('/api/login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload)
-      })
+        body: JSON.stringify({ email, password }),
+      });
 
-      if (!airtableRes.ok) throw new Error('Airtable submission failed')
+      const result = await res.json();
+      console.log("🔁 Login response:", result);
 
-      // PDF download
-      const html = `
-        <h1 style="color:#0a2447;">Reform Report</h1>
-        <p><strong>Organization:</strong> ${payload.organization}</p>
-        <p><strong>Country:</strong> ${payload.country}</p>
-        <p><strong>Tier:</strong> ${payload.tier}</p>
-        <p><strong>Company Size:</strong> ${payload.company_size}</p>
-        <p><strong>Goal:</strong> ${payload.goal}</p>
-        <p><strong>Outcome:</strong> ${payload.desired_outcome}</p>
-        <p><strong>Cost Goal:</strong> $${payload.cost_savings_goal}</p>
-        <p><strong>Timeline:</strong> ${payload.implementation_time_frame}</p>
-        <p style="margin-top:1rem;"><strong>Report:</strong></p>
-        <p>${payload.report_content}</p>
-      `
-
-      const pdfRes = await fetch('/api/generate-pdf', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ html })
-      })
-
-      if (pdfRes.ok) {
-        const blob = await pdfRes.blob()
-        const url = window.URL.createObjectURL(blob)
-        const a = document.createElement('a')
-        a.href = url
-        a.download = 'ReformReport.pdf'
-        a.click()
-        window.URL.revokeObjectURL(url)
+      if (!res.ok) {
+        setError(result.error || 'Login failed');
+      } else {
+        setStage('mfa');
       }
-
-      setStatus('✅ Reform report submitted and PDF downloaded!')
-    } catch (error) {
-      console.error('❌ Error:', error)
-      setStatus('❌ Submission or PDF failed. Please try again.')
+    } catch (err) {
+      console.error('Login error:', err);
+      setError('Unexpected error during login.');
+    } finally {
+      setLoading(false);
     }
-  }
+  };
 
-  const inputStyle = {
-    width: '100%',
-    padding: '0.75rem',
-    marginBottom: '1rem',
-    borderRadius: '6px',
-    border: '1px solid #ccc',
-    fontSize: '1rem'
-  }
+  const handleMfaVerify = async () => {
+    setError('');
+    setLoading(true);
 
-  const labelStyle = {
-    fontWeight: 'bold',
-    marginBottom: '0.25rem',
-    display: 'block',
-    color: '#0a2447'
-  }
+    console.log("🔼 Submitting MFA Code:", { email, mfaCode });
+
+    try {
+      const res = await fetch('/api/verify-mfa', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, mfaCode }),
+      });
+
+      const result = await res.json();
+      console.log("✅ MFA verification result:", result);
+
+      if (!res.ok) {
+        setError(result.error || 'MFA verification failed');
+      } else {
+        alert('✅ MFA Verified. Redirecting...');
+        window.location.href = '/dashboard'; // update if your route differs
+      }
+    } catch (err) {
+      console.error('MFA error:', err);
+      setError('Unexpected error during MFA verification.');
+    } finally {
+      setLoading(false);
+    }
+  };
 
   return (
-    <main style={{
-      padding: '2rem',
-      fontFamily: 'Arial',
-      backgroundColor: '#ffffff',
-      color: '#0a2447',
-      maxWidth: '600px',
-      margin: 'auto'
-    }}>
-      <img src="/logo.png" alt="Sovereign OPS Logo" style={{ width: '160px', marginBottom: '2rem' }} />
-      <div style={{ textAlign: 'right', marginBottom: '1rem' }}>
-        <button onClick={() => setLang(lang === 'en' ? 'fr' : 'en')}>
-          {lang === 'en' ? 'FR' : 'EN'}
-        </button>
-      </div>
+    <div style={{ maxWidth: '400px', margin: '80px auto', padding: '20px', border: '1px solid #ccc', borderRadius: '8px' }}>
+      <h2 style={{ textAlign: 'center' }}>🔒 Sovereign Ops Login</h2>
 
-      <h1 style={{ marginBottom: '2rem' }}>Empire Reform Request Form</h1>
-      <form onSubmit={handleSubmit}>
-        <label style={labelStyle}>{t.orgName}</label>
-        <input name="organization" placeholder={t.orgName} style={inputStyle} required />
+      {stage === 'login' ? (
+        <>
+          <label>Email</label>
+          <input
+            type="email"
+            value={email}
+            onChange={e => setEmail(e.target.value)}
+            placeholder="Enter your email"
+            style={{ width: '100%', padding: '8px', marginBottom: '10px' }}
+          />
 
-        <label style={labelStyle}>{t.country}</label>
-        <select name="country" style={inputStyle} required>
-          <option value="">{t.country}</option>
-          {countries.map(c => <option key={c}>{c}</option>)}
-        </select>
+          <label>Password</label>
+          <input
+            type="password"
+            value={password}
+            onChange={e => setPassword(e.target.value)}
+            placeholder="Enter your password"
+            style={{ width: '100%', padding: '8px', marginBottom: '10px' }}
+          />
 
-        <label style={labelStyle}>{t.tier}</label>
-        <select name="tier" style={inputStyle} required>
-          <option value="">{t.tier}</option>
-          {tiers.map(t => <option key={t}>{t}</option>)}
-        </select>
+          <button
+            onClick={handleLogin}
+            disabled={loading}
+            style={{ width: '100%', padding: '10px', backgroundColor: '#001F3F', color: 'white', border: 'none' }}
+          >
+            {loading ? 'Logging in...' : 'Login'}
+          </button>
+        </>
+      ) : (
+        <>
+          <label>MFA Code</label>
+          <input
+            type="text"
+            value={mfaCode}
+            onChange={e => setMfaCode(e.target.value)}
+            placeholder="Enter MFA code"
+            style={{ width: '100%', padding: '8px', marginBottom: '10px' }}
+          />
 
-        <label style={labelStyle}>{t.companySize}</label>
-        <select name="companySize" style={inputStyle} required>
-          <option value="">{t.companySize}</option>
-          {sizes.map(s => <option key={s}>{s}</option>)}
-        </select>
+          <button
+            onClick={handleMfaVerify}
+            disabled={loading}
+            style={{ width: '100%', padding: '10px', backgroundColor: '#0074D9', color: 'white', border: 'none' }}
+          >
+            {loading ? 'Verifying...' : 'Verify MFA'}
+          </button>
+        </>
+      )}
 
-        <label style={labelStyle}>{t.goal}</label>
-        <input name="goal" placeholder="e.g. Cut costs, improve efficiency" style={inputStyle} required />
-
-        <label style={labelStyle}>{t.desiredOutcome}</label>
-        <input name="desiredOutcome" placeholder={t.desiredOutcome} style={inputStyle} required />
-
-        <label style={labelStyle}>{t.cost}</label>
-        <input name="cost" type="number" placeholder="1000000" style={inputStyle} required />
-
-        <label style={labelStyle}>{t.timeFrame}</label>
-        <select name="timeFrame" style={inputStyle} required>
-          <option value="">{t.timeFrame}</option>
-          {timeFrames.map(tf => <option key={tf}>{tf}</option>)}
-        </select>
-
-        <label style={labelStyle}>{t.report}</label>
-        <textarea name="report" placeholder="Paste the generated content here..." rows={6} style={inputStyle} required />
-
-        <button type="submit" style={{
-          backgroundColor: '#0a2447',
-          color: 'white',
-          padding: '0.75rem 1.5rem',
-          border: 'none',
-          borderRadius: '5px',
-          cursor: 'pointer',
-          fontSize: '1rem'
-        }}>
-          {t.submit}
-        </button>
-      </form>
-
-      <p style={{ marginTop: '1rem', color: status.includes('✅') ? 'green' : 'red' }}>
-        {status}
-      </p>
-    </main>
-  )
+      {error && <p style={{ color: 'red', marginTop: '10px' }}>{error}</p>}
+    </div>
+  );
 }
+
