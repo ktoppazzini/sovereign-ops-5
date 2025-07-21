@@ -14,8 +14,15 @@ export default async function handler(req, res) {
     return res.status(400).json({ error: "Missing email or password" });
   }
 
-  const cleanedPassword = password.replace(/\s+/g, "").trim();
-  console.log("📥 Cleaned password used for comparison:", `"${cleanedPassword}"`);
+  // Normalize and sanitize the password input
+  const cleanedPassword = password
+    .normalize("NFKC")                // Normalize weird unicode chars
+    .replace(/[^\x20-\x7E]/g, "")     // Strip non-printable characters
+    .replace(/\s+/g, "")              // Remove all whitespace
+    .trim();                          // Final trim
+
+  console.log("📥 Cleaned & normalized password:", `"${cleanedPassword}"`);
+  console.log("📏 Password length:", cleanedPassword.length);
 
   const airtableApiKey = process.env.AIRTABLE_API_KEY;
   const baseId = process.env.AIRTABLE_BASE_ID;
@@ -46,14 +53,14 @@ export default async function handler(req, res) {
     console.log("🔐 Stored bcrypt hash from Airtable:", storedHash);
 
     if (!storedHash) {
-      await logAttempt(loginLogTable, baseId, airtableApiKey, email, "Fail", "Missing hash");
+      await logAttempt(loginLogTable, baseId, airtableApiKey, email, "Fail", "Missing password hash");
       return res.status(401).json({ error: "Invalid credentials" });
     }
 
     const isMatch = await bcrypt.compare(cleanedPassword, storedHash);
     console.log("✅ Password match result (from Airtable):", isMatch);
 
-    // Optional reference test for known-good 123456 hash
+    // Optional: validate against known good hash for debugging
     const referenceHash = "$2a$12$FjIrrA.CfVwQgJNRBzy6x.6qB0BiAdcD5EJcZXp2ySr5C2RIwq/Ie";
     const isReferenceMatch = await bcrypt.compare(cleanedPassword, referenceHash);
     console.log("🧪 Match vs known-good '123456':", isReferenceMatch);
@@ -75,7 +82,7 @@ export default async function handler(req, res) {
 
 async function logAttempt(table, baseId, apiKey, email, status, notes) {
   try {
-    const res = await fetch(`https://api.airtable.com/v0/${baseId}/${table}`, {
+    const response = await fetch(`https://api.airtable.com/v0/${baseId}/${table}`, {
       method: "POST",
       headers: {
         Authorization: `Bearer ${apiKey}`,
@@ -91,8 +98,8 @@ async function logAttempt(table, baseId, apiKey, email, status, notes) {
       }),
     });
 
-    if (!res.ok) {
-      const errorText = await res.text();
+    if (!response.ok) {
+      const errorText = await response.text();
       console.warn("⚠️ Failed to log attempt:", errorText);
     } else {
       console.log(`📝 Login attempt logged: ${email} ${status}`);
@@ -101,6 +108,7 @@ async function logAttempt(table, baseId, apiKey, email, status, notes) {
     console.warn("⚠️ Silent logging error:", e.message);
   }
 }
+
 
 
 
