@@ -1,5 +1,3 @@
-// pages/api/login.js
-
 import bcrypt from 'bcryptjs';
 
 export default async function handler(req, res) {
@@ -51,48 +49,28 @@ export default async function handler(req, res) {
       return res.status(401).json({ error: 'Invalid credentials' });
     }
 
-    console.log("🔐 Comparing password with hash...");
+    console.log("🔐 Comparing password...");
 
     const isMatch = await bcrypt.compare(cleanPassword, storedHash);
 
     if (!isMatch) {
-      console.warn(`❌ Password mismatch for user: ${cleanEmail}`);
+      console.warn(`❌ Password mismatch for: ${cleanEmail}`);
       await logAttempt(loginLogTable, baseId, airtableApiKey, cleanEmail, false, "Password mismatch");
       return res.status(401).json({ error: 'Invalid credentials' });
     }
 
-    // ✅ Successful login
-    console.log(`✅ Password verified for ${cleanEmail}`);
-
-    const now = new Date().toISOString();
-
-    // Update Last Login
-    await fetch(`https://api.airtable.com/v0/${baseId}/${tableName}/${record.id}`, {
-      method: "PATCH",
-      headers: {
-        Authorization: `Bearer ${airtableApiKey}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        fields: {
-          "Last Login": now,
-        },
-      }),
-    });
-
-    // Log success
+    console.log(`✅ Login success for ${cleanEmail}`);
     await logAttempt(loginLogTable, baseId, airtableApiKey, cleanEmail, true, "Login successful");
 
     return res.status(200).json({ message: "Login successful" });
 
   } catch (err) {
-    console.error("🔥 Login API error:", err);
+    console.error("🔥 Login error:", err);
     await logAttempt(loginLogTable, baseId, airtableApiKey, cleanEmail, false, "Unhandled exception");
     return res.status(500).json({ error: "Internal server error" });
   }
 }
 
-// Optional log function
 async function logAttempt(table, baseId, apiKey, email, success, notes) {
   try {
     await fetch(`https://api.airtable.com/v0/${baseId}/${table}`, {
@@ -111,7 +89,7 @@ async function logAttempt(table, baseId, apiKey, email, success, notes) {
       }),
     });
   } catch (err) {
-    console.warn("⚠️ Failed to log login attempt:", err.message);
+    console.warn("⚠️ Logging error (silent):", err.message);
   }
 }
 
