@@ -1,27 +1,11 @@
 'use client';
-'use client';
-import { useEffect } from 'react';
-import { useRouter } from 'next/navigation';
-
-export default function RedirectHome() {
-  const router = useRouter();
-
-  useEffect(() => {
-    router.replace('/login');
-  }, [router]);
-
-  return null;
-}
-
-
-
 import { useState } from 'react';
 
 export default function LoginPage() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [mfaCode, setMfaCode] = useState('');
-  const [stage, setStage] = useState('login'); // 'login' or 'mfa'
+  const [stage, setStage] = useState('login');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
 
@@ -73,7 +57,7 @@ export default function LoginPage() {
         setError(result.error || 'MFA verification failed');
       } else {
         alert('✅ MFA Verified. Redirecting...');
-        window.location.href = '/dashboard'; // Update path if needed
+        window.location.href = '/dashboard'; // Update if needed
       }
     } catch (err) {
       console.error('MFA error:', err);
