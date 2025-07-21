@@ -1,3 +1,5 @@
+console.log("Password received:", `"${password}"`);
+
 import bcrypt from 'bcryptjs';
 
 export default async function handler(req, res) {
