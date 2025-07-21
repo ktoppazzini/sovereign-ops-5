@@ -1,134 +1,123 @@
-"use client";
-import { useState } from "react";
-import { useRouter } from "next/navigation";
-import Image from "next/image";
+import bcrypt from "bcrypt";
 
-export default function LoginPage() {
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
-  const [mfaCode, setMfaCode] = useState("");
-  const [step, setStep] = useState(1);
-  const [message, setMessage] = useState("");
-  const [error, setError] = useState("");
-  const router = useRouter();
+export default async function handler(req, res) {
+  if (req.method !== "POST") {
+    return res.status(405).json({ error: "Method not allowed" });
+  }
 
-  const handleLogin = async () => {
-    setError("");
-    setMessage("");
+  const { email, password } = req.body;
 
-    const res = await fetch("/api/login", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ email, password }),
+  if (!email || !password) {
+    console.warn("⚠️ Missing email or password");
+    return res.status(400).json({ error: "Missing email or password" });
+  }
+
+  const airtableApiKey = process.env.AIRTABLE_API_KEY;
+  const baseId = process.env.AIRTABLE_BASE_ID;
+  const tableName = "Users";
+  const loginLogTable = "Login Attempts";
+
+  try {
+    console.log(`🔍 Looking up user by email: ${email}`);
+
+    const userUrl = `https://api.airtable.com/v0/${baseId}/${tableName}?filterByFormula={Email}="${email}"`;
+
+    const userRes = await fetch(userUrl, {
+      headers: {
+        Authorization: `Bearer ${airtableApiKey}`,
+        "Content-Type": "application/json",
+      },
     });
 
-    const data = await res.json();
+    const userData = await userRes.json();
 
-    if (res.status === 200) {
-      const result = await fetch("/api/verify-mfa", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email }),
-      }).then(res => res.json());
+    if (!userData.records || userData.records.length === 0) {
+      console.error(`❌ User not found: ${email}`);
+      await logAttempt(loginLogTable, baseId, airtableApiKey, email, false, "User not found");
+      return res.status(401).json({ error: "Invalid credentials" });
+    }
 
-      if (result.message) {
-        setMessage(result.message);
-        setStep(2);
-      } else {
-        setError(result.error || "Failed to send verification code.");
+    const record = userData.records[0];
+    const fields = record.fields;
+
+    const storedHash = fields["auth_token_key"];
+
+    if (!storedHash) {
+      console.error("❌ Password hash not found in Airtable for user:", email);
+      await logAttempt(loginLogTable, baseId, airtableApiKey, email, false, "No hash stored");
+      return res.status(401).json({ error: "Invalid credentials" });
+    }
+
+    const isMatch = await bcrypt.compare(password, storedHash);
+
+    if (!isMatch) {
+      console.warn(`❌ Password mismatch for user: ${email}`);
+      await logAttempt(loginLogTable, baseId, airtableApiKey, email, false, "Wrong password");
+      return res.status(401).json({ error: "Invalid credentials" });
+    }
+
+    console.log(`✅ Password match for ${email}`);
+
+    const now = new Date().toISOString();
+
+    // PATCH Last Login back to Airtable
+    const patchRes = await fetch(
+      `https://api.airtable.com/v0/${baseId}/${tableName}/${record.id}`,
+      {
+        method: "PATCH",
+        headers: {
+          Authorization: `Bearer ${airtableApiKey}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          fields: {
+            "Last Login": now,
+          },
+        }),
       }
-    } else {
-      setError(data.error || "Invalid email or password.");
+    );
+
+    if (!patchRes.ok) {
+      const patchError = await patchRes.text();
+      console.warn(`⚠️ Failed to update Last Login: ${patchError}`);
     }
-  };
 
-  const handleMfaSubmit = async () => {
-    setError("");
-    setMessage("");
+    // Log successful login attempt
+    await logAttempt(loginLogTable, baseId, airtableApiKey, email, true, "Login success");
 
-    const res = await fetch("/api/verify-code", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ email, code: mfaCode }),
-    });
-
-    const data = await res.json();
-    console.log("📥 verify-code response", res.status, data);
-
-    if (res.status === 200) {
-      setMessage("✅ Verification successful. Redirecting...");
-      setTimeout(() => {
-        router.push("/dashboard");
-      }, 1500);
-    } else {
-      setError(data.error || "Invalid verification code.");
-    }
-  };
-
-  return (
-    <div style={{ padding: "2rem", textAlign: "center", maxWidth: "400px", margin: "auto" }}>
-      <div style={{ marginBottom: "1rem" }}>
-        <Image src="/logo.png" alt="Sovereign Ops Logo" width={150} height={150} />
-      </div>
-      <h2 style={{ marginTop: "1rem" }}>Secure Login</h2>
-
-      {step === 1 ? (
-        <>
-          <input
-            type="email"
-            placeholder="Email"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            style={inputStyle}
-          />
-          <input
-            type="password"
-            placeholder="Password"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            style={inputStyle}
-          />
-          <button onClick={handleLogin} style={buttonStyle}>
-            Login
-          </button>
-        </>
-      ) : (
-        <>
-          <input
-            type="text"
-            placeholder="Enter your verification code"
-            value={mfaCode}
-            onChange={(e) => setMfaCode(e.target.value)}
-            style={inputStyle}
-          />
-          <button onClick={handleMfaSubmit} style={buttonStyle}>
-            Verify Code
-          </button>
-        </>
-      )}
-
-      {message && <p style={{ color: "green", marginTop: "1rem" }}>{message}</p>}
-      {error && <p style={{ color: "red", marginTop: "1rem" }}>{error}</p>}
-    </div>
-  );
+    return res.status(200).json({ message: "Login successful" });
+  } catch (err) {
+    console.error("🔥 Login error:", err);
+    await logAttempt(loginLogTable, baseId, airtableApiKey, email, false, "Unhandled error");
+    return res.status(500).json({ error: "Internal server error" });
+  }
 }
 
-const inputStyle = {
-  display: "block",
-  width: "100%",
-  margin: "10px 0",
-  padding: "10px",
-  fontSize: "16px",
-  borderRadius: "5px",
-  border: "1px solid #ccc",
-};
+// Logs login attempts to optional second Airtable table
+async function logAttempt(table, baseId, apiKey, email, success, notes) {
+  try {
+    const logRes = await fetch(`https://api.airtable.com/v0/${baseId}/${table}`, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${apiKey}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        fields: {
+          Email: email,
+          Status: success ? "Success" : "Fail",
+          Notes: notes,
+          Timestamp: new Date().toISOString(),
+        },
+      }),
+    });
 
-const buttonStyle = {
-  backgroundColor: "#0a2540",
-  color: "#fff",
-  padding: "10px 20px",
-  border: "none",
-  borderRadius: "5px",
-  cursor: "pointer",
-  fontWeight: "bold",
-};
+    if (!logRes.ok) {
+      const errText = await logRes.text();
+      console.warn("⚠️ Failed to log login attempt:", errText);
+    }
+  } catch (e) {
+    console.warn("⚠️ Logging failure (silent):", e.message);
+  }
+}
+
