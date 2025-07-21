@@ -1,3 +1,7 @@
+console.log("🔐 API KEY loaded:", !!process.env.AIRTABLE_API_KEY);
+console.log("🔑 TOKEN begins with:", process.env.AIRTABLE_API_KEY?.slice(0, 4));
+
+
 import bcrypt from 'bcryptjs';
 
 export default async function handler(req, res) {
