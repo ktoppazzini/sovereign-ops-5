@@ -1,10 +1,4 @@
-console.log("🔐 Comparing entered password:", password);
-console.log("🔐 Stored hash:", storedHash);
-console.log("🔐 Match result:", isMatch);
-
-console.log("Password received:", `"${password}"`);
-
-import bcrypt from 'bcryptjs';
+import bcrypt from "bcryptjs";
 
 export default async function handler(req, res) {
   if (req.method !== "POST") {
@@ -13,8 +7,10 @@ export default async function handler(req, res) {
 
   const { email, password } = req.body;
 
+  console.log("📥 Email received:", email);
+  console.log("📥 Password received:", `"${password}"`);
+
   if (!email || !password) {
-    console.warn("⚠️ Missing email or password");
     return res.status(400).json({ error: "Missing email or password" });
   }
 
@@ -24,11 +20,8 @@ export default async function handler(req, res) {
   const loginLogTable = "Login Attempts";
 
   try {
-    const lowerEmail = email.toLowerCase();
-    const filterFormula = `LOWER({Email}) = "${lowerEmail}"`;
-    const userUrl = `https://api.airtable.com/v0/${baseId}/${tableName}?filterByFormula=${encodeURIComponent(filterFormula)}`;
+    const userUrl = `https://api.airtable.com/v0/${baseId}/${tableName}?filterByFormula={Email}="${email}"`;
 
-    console.log(`🔍 Looking up user by email: ${lowerEmail}`);
     const userRes = await fetch(userUrl, {
       headers: {
         Authorization: `Bearer ${airtableApiKey}`,
@@ -39,46 +32,43 @@ export default async function handler(req, res) {
     const userData = await userRes.json();
 
     if (!userData.records || userData.records.length === 0) {
-      console.error(`❌ User not found: ${lowerEmail}`);
-      await logAttempt(loginLogTable, baseId, airtableApiKey, lowerEmail, false, "User not found");
+      console.warn("❌ User not found:", email);
+      await logAttempt(loginLogTable, baseId, airtableApiKey, email, "Fail", "User not found");
       return res.status(401).json({ error: "Invalid credentials" });
     }
 
     const record = userData.records[0];
     const fields = record.fields;
+    const storedHash = fields["auth_token_key"];
 
-    const storedHash = (fields["auth_token_key"] || "").trim();
+    console.log("🔐 Stored bcrypt hash:", storedHash);
 
     if (!storedHash) {
-      console.error(`❌ No password hash found for user: ${lowerEmail}`);
-      await logAttempt(loginLogTable, baseId, airtableApiKey, lowerEmail, false, "No hash stored");
+      await logAttempt(loginLogTable, baseId, airtableApiKey, email, "Fail", "Missing hash");
       return res.status(401).json({ error: "Invalid credentials" });
     }
 
     const isMatch = await bcrypt.compare(password, storedHash);
 
+    console.log("✅ Password match result:", isMatch);
+
     if (!isMatch) {
-      console.warn(`❌ Password mismatch for user: ${lowerEmail}`);
-      await logAttempt(loginLogTable, baseId, airtableApiKey, lowerEmail, false, "Wrong password");
+      await logAttempt(loginLogTable, baseId, airtableApiKey, email, "Fail", "Password mismatch");
       return res.status(401).json({ error: "Invalid credentials" });
     }
 
-    console.log(`✅ Password match for ${lowerEmail}`);
-    await logAttempt(loginLogTable, baseId, airtableApiKey, lowerEmail, true, "Login success");
-
+    await logAttempt(loginLogTable, baseId, airtableApiKey, email, "Success", "Login OK");
     return res.status(200).json({ message: "Login successful" });
-
   } catch (err) {
-    console.error("🔥 Login handler error:", err);
-    await logAttempt(loginLogTable, baseId, airtableApiKey, email, false, "Internal error");
+    console.error("🔥 Login error:", err);
+    await logAttempt(loginLogTable, baseId, airtableApiKey, email, "Fail", "Server error");
     return res.status(500).json({ error: "Internal server error" });
   }
 }
 
-// Helper function to log login attempts
-async function logAttempt(table, baseId, apiKey, email, success, notes) {
+async function logAttempt(table, baseId, apiKey, email, status, notes) {
   try {
-    const logRes = await fetch(`https://api.airtable.com/v0/${baseId}/${table}`, {
+    const response = await fetch(`https://api.airtable.com/v0/${baseId}/${table}`, {
       method: "POST",
       headers: {
         Authorization: `Bearer ${apiKey}`,
@@ -87,18 +77,19 @@ async function logAttempt(table, baseId, apiKey, email, success, notes) {
       body: JSON.stringify({
         fields: {
           Email: email,
-          Status: success ? "Success" : "Fail",
+          Status: status,
           Notes: notes,
           Timestamp: new Date().toISOString(),
         },
       }),
     });
 
-    if (!logRes.ok) {
-      const errText = await logRes.text();
-      console.warn("⚠️ Logging failed:", errText);
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.warn("⚠️ Failed to log attempt:", errorText);
     }
-  } catch (err) {
-    console.warn("⚠️ Logging crash:", err.message);
+  } catch (e) {
+    console.warn("⚠️ Silent logging error:", e.message);
   }
 }
+
