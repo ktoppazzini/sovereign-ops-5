@@ -38,8 +38,7 @@ export default async function handler(req, res) {
     }
 
     const record = userData.records[0];
-    const fields = record.fields;
-    const storedHash = fields["auth_token_key"];
+    const storedHash = record.fields["auth_token_key"];
 
     console.log("🔐 Stored bcrypt hash:", storedHash);
 
@@ -49,26 +48,32 @@ export default async function handler(req, res) {
     }
 
     const isMatch = await bcrypt.compare(password, storedHash);
+    console.log("✅ Password match result (from Airtable):", isMatch);
 
-    console.log("✅ Password match result:", isMatch);
+    // Compare to known-good hash
+    const referenceHash = "$2a$12$FjIrrA.CfVwQgJNRBzy6x.6qB0BiAdcD5EJcZXp2ySr5C2RIwq/Ie";
+    const refMatch = await bcrypt.compare(password, referenceHash);
+    console.log("🧪 Match vs known-good '123456':", refMatch);
 
     if (!isMatch) {
       await logAttempt(loginLogTable, baseId, airtableApiKey, email, "Fail", "Password mismatch");
       return res.status(401).json({ error: "Invalid credentials" });
     }
 
-    await logAttempt(loginLogTable, baseId, airtableApiKey, email, "Success", "Login OK");
+    // ✅ Password OK — ready for MFA or dashboard
+    await logAttempt(loginLogTable, baseId, airtableApiKey, email, "Success", "Login success");
     return res.status(200).json({ message: "Login successful" });
+
   } catch (err) {
     console.error("🔥 Login error:", err);
-    await logAttempt(loginLogTable, baseId, airtableApiKey, email, "Fail", "Server error");
+    await logAttempt(loginLogTable, baseId, airtableApiKey, email, "Fail", `Unhandled error: ${err.message}`);
     return res.status(500).json({ error: "Internal server error" });
   }
 }
 
 async function logAttempt(table, baseId, apiKey, email, status, notes) {
   try {
-    const response = await fetch(`https://api.airtable.com/v0/${baseId}/${table}`, {
+    const res = await fetch(`https://api.airtable.com/v0/${baseId}/${table}`, {
       method: "POST",
       headers: {
         Authorization: `Bearer ${apiKey}`,
@@ -84,12 +89,15 @@ async function logAttempt(table, baseId, apiKey, email, status, notes) {
       }),
     });
 
-    if (!response.ok) {
-      const errorText = await response.text();
-      console.warn("⚠️ Failed to log attempt:", errorText);
+    if (!res.ok) {
+      const text = await res.text();
+      console.warn("⚠️ Failed to log login attempt:", text);
+    } else {
+      console.log("📝 Login attempt logged:", email, status);
     }
   } catch (e) {
     console.warn("⚠️ Silent logging error:", e.message);
   }
 }
+
 
