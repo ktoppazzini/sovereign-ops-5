@@ -1,100 +1,101 @@
-console.log("🔐 API KEY loaded:", !!process.env.AIRTABLE_API_KEY);
-console.log("🔑 TOKEN begins with:", process.env.AIRTABLE_API_KEY?.slice(0, 4));
-
+// pages/api/login.js
 
 import bcrypt from 'bcryptjs';
 
 export default async function handler(req, res) {
-  if (req.method !== "POST") {
-    return res.status(405).json({ error: "Method not allowed" });
+  if (req.method !== 'POST') {
+    return res.status(405).json({ error: 'Method not allowed' });
   }
 
   const { email, password } = req.body;
 
   if (!email || !password) {
     console.warn("⚠️ Missing email or password");
-    return res.status(400).json({ error: "Missing email or password" });
+    return res.status(400).json({ error: 'Missing email or password' });
   }
+
+  const cleanEmail = email.trim();
+  const cleanPassword = password.trim();
 
   const airtableApiKey = process.env.AIRTABLE_API_KEY;
   const baseId = process.env.AIRTABLE_BASE_ID;
-  const tableName = "Users";
-  const loginLogTable = "Login Attempts";
+  const tableName = 'Users';
+  const loginLogTable = 'Login Attempts';
 
   try {
-    console.log(`🔍 Looking up user by email: ${email}`);
+    console.log(`🔍 Looking up user by email: ${cleanEmail}`);
 
-    const userUrl = `https://api.airtable.com/v0/${baseId}/${tableName}?filterByFormula={Email}="${email}"`;
+    const userUrl = `https://api.airtable.com/v0/${baseId}/${tableName}?filterByFormula={Email}="${cleanEmail}"`;
 
     const userRes = await fetch(userUrl, {
       headers: {
         Authorization: `Bearer ${airtableApiKey}`,
-        "Content-Type": "application/json",
+        'Content-Type': 'application/json',
       },
     });
 
     const userData = await userRes.json();
 
     if (!userData.records || userData.records.length === 0) {
-      console.error(`❌ User not found: ${email}`);
-      await logAttempt(loginLogTable, baseId, airtableApiKey, email, false, "User not found");
-      return res.status(401).json({ error: "Invalid credentials" });
+      console.warn(`❌ No user found with email: ${cleanEmail}`);
+      await logAttempt(loginLogTable, baseId, airtableApiKey, cleanEmail, false, "User not found");
+      return res.status(401).json({ error: 'Invalid credentials' });
     }
 
     const record = userData.records[0];
-    const fields = record.fields;
-    const storedHash = fields["auth_token_key"];
+    const storedHash = record.fields["auth_token_key"];
 
     if (!storedHash) {
-      console.error("❌ Password hash not found in Airtable for user:", email);
-      await logAttempt(loginLogTable, baseId, airtableApiKey, email, false, "No hash stored");
-      return res.status(401).json({ error: "Invalid credentials" });
+      console.warn(`❌ No password hash found for: ${cleanEmail}`);
+      await logAttempt(loginLogTable, baseId, airtableApiKey, cleanEmail, false, "No stored hash");
+      return res.status(401).json({ error: 'Invalid credentials' });
     }
 
-    const isMatch = await bcrypt.compare(password, storedHash);
+    console.log("🔐 Comparing password with hash...");
+
+    const isMatch = await bcrypt.compare(cleanPassword, storedHash);
 
     if (!isMatch) {
-      console.warn(`❌ Password mismatch for user: ${email}`);
-      await logAttempt(loginLogTable, baseId, airtableApiKey, email, false, "Wrong password");
-      return res.status(401).json({ error: "Invalid credentials" });
+      console.warn(`❌ Password mismatch for user: ${cleanEmail}`);
+      await logAttempt(loginLogTable, baseId, airtableApiKey, cleanEmail, false, "Password mismatch");
+      return res.status(401).json({ error: 'Invalid credentials' });
     }
 
-    console.log(`✅ Password match for ${email}`);
+    // ✅ Successful login
+    console.log(`✅ Password verified for ${cleanEmail}`);
+
     const now = new Date().toISOString();
 
-    const patchRes = await fetch(
-      `https://api.airtable.com/v0/${baseId}/${tableName}/${record.id}`,
-      {
-        method: "PATCH",
-        headers: {
-          Authorization: `Bearer ${airtableApiKey}`,
-          "Content-Type": "application/json",
+    // Update Last Login
+    await fetch(`https://api.airtable.com/v0/${baseId}/${tableName}/${record.id}`, {
+      method: "PATCH",
+      headers: {
+        Authorization: `Bearer ${airtableApiKey}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        fields: {
+          "Last Login": now,
         },
-        body: JSON.stringify({
-          fields: { "Last Login": now },
-        }),
-      }
-    );
+      }),
+    });
 
-    if (!patchRes.ok) {
-      const patchError = await patchRes.text();
-      console.warn(`⚠️ Failed to update Last Login: ${patchError}`);
-    }
-
-    await logAttempt(loginLogTable, baseId, airtableApiKey, email, true, "Login success");
+    // Log success
+    await logAttempt(loginLogTable, baseId, airtableApiKey, cleanEmail, true, "Login successful");
 
     return res.status(200).json({ message: "Login successful" });
+
   } catch (err) {
-    console.error("🔥 Login error:", err);
-    await logAttempt(loginLogTable, baseId, airtableApiKey, email, false, "Unhandled error");
+    console.error("🔥 Login API error:", err);
+    await logAttempt(loginLogTable, baseId, airtableApiKey, cleanEmail, false, "Unhandled exception");
     return res.status(500).json({ error: "Internal server error" });
   }
 }
 
-// Logs login attempts to Login Attempts table
+// Optional log function
 async function logAttempt(table, baseId, apiKey, email, success, notes) {
   try {
-    const logRes = await fetch(`https://api.airtable.com/v0/${baseId}/${table}`, {
+    await fetch(`https://api.airtable.com/v0/${baseId}/${table}`, {
       method: "POST",
       headers: {
         Authorization: `Bearer ${apiKey}`,
@@ -109,13 +110,9 @@ async function logAttempt(table, baseId, apiKey, email, success, notes) {
         },
       }),
     });
-
-    if (!logRes.ok) {
-      const errText = await logRes.text();
-      console.warn("⚠️ Failed to log login attempt:", errText);
-    }
-  } catch (e) {
-    console.warn("⚠️ Logging failure (silent):", e.message);
+  } catch (err) {
+    console.warn("⚠️ Failed to log login attempt:", err.message);
   }
 }
+
 
