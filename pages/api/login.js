@@ -1,3 +1,7 @@
+console.log("🔐 Comparing entered password:", password);
+console.log("🔐 Stored hash:", storedHash);
+console.log("🔐 Match result:", isMatch);
+
 console.log("Password received:", `"${password}"`);
 
 import bcrypt from 'bcryptjs';
