@@ -51,22 +51,33 @@ export default async function handler(req, res) {
       return res.status(401).json({ error: "Invalid credentials" });
     }
 
-    // Generate MFA code
+    // Generate MFA code and expiry
     const verificationCode = Math.floor(100000 + Math.random() * 900000).toString();
-    const expiry = new Date(Date.now() + 10 * 60 * 1000).toISOString(); // 10 min from now
+    const expiry = new Date(Date.now() + 10 * 60 * 1000).toISOString(); // 10 minutes
 
-    // Send SMS
-    if (!fields["Phone number"]) {
+    const phoneNumber = fields["Phone number"];
+    const fromNumber = process.env.TWILIO_PHONE_NUMBER;
+
+    if (!phoneNumber) {
       return res.status(400).json({ error: "Missing phone number" });
     }
 
+    if (!fromNumber) {
+      console.error("❌ TWILIO_PHONE_NUMBER not set in environment");
+      return res.status(500).json({ error: "SMS sender not configured" });
+    }
+
+    console.log(`📲 Sending SMS to ${phoneNumber} from ${fromNumber}`);
+
     await twilioClient.messages.create({
       body: `Your Sovereign Ops verification code is: ${verificationCode}`,
-      from: process.env.TWILIO_PHONE_NUMBER,
-      to: fields["Phone number"],
+      from: fromNumber,
+      to: phoneNumber,
     });
 
-    // Update Airtable with code + expiry
+    console.log("✅ SMS sent successfully");
+
+    // Save code and expiry in Airtable
     await fetch(`https://api.airtable.com/v0/${baseId}/${tableName}/${record.id}`, {
       method: "PATCH",
       headers: {
@@ -114,3 +125,4 @@ async function logAttempt(table, baseId, apiKey, email, success, notes) {
     console.warn("⚠️ Silent logging error:", err.message);
   }
 }
+
