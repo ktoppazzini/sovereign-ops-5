@@ -5,7 +5,7 @@ export default function LoginPage() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [mfaCode, setMfaCode] = useState('');
-  const [stage, setStage] = useState('login');
+  const [stage, setStage] = useState('login'); // 'login' or 'mfa'
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
 
@@ -14,7 +14,6 @@ export default function LoginPage() {
     setLoading(true);
 
     try {
-      console.log("🔐 Attempting login with:", email);
       const res = await fetch('/api/login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -41,8 +40,6 @@ export default function LoginPage() {
     setError('');
     setLoading(true);
 
-    console.log("🔼 Submitting MFA Code:", { email, mfaCode });
-
     try {
       const res = await fetch('/api/verify-mfa', {
         method: 'POST',
@@ -54,14 +51,14 @@ export default function LoginPage() {
       console.log("✅ MFA verification result:", result);
 
       if (!res.ok) {
-        setError(result.error || 'MFA verification failed');
+        setError(result.error || 'Verification failed');
       } else {
-        alert('✅ MFA Verified. Redirecting...');
-        window.location.href = '/dashboard'; // Update if needed
+        alert('✅ Verified. Redirecting...');
+        window.location.href = '/dashboard';
       }
     } catch (err) {
       console.error('MFA error:', err);
-      setError('Unexpected error during MFA verification.');
+      setError('Unexpected error during verification.');
     } finally {
       setLoading(false);
     }
@@ -81,36 +78,22 @@ export default function LoginPage() {
 
       {stage === 'login' ? (
         <>
-          <label style={{ fontWeight: 'bold' }}>Email</label>
+          <label>Email</label>
           <input
             type="email"
             value={email}
             onChange={e => setEmail(e.target.value)}
             placeholder="Enter your email"
-            style={{
-              width: '100%',
-              padding: '10px',
-              marginBottom: '12px',
-              border: '1px solid #aaa',
-              borderRadius: '4px'
-            }}
+            style={{ width: '100%', padding: '10px', marginBottom: '12px' }}
           />
-
-          <label style={{ fontWeight: 'bold' }}>Password</label>
+          <label>Password</label>
           <input
             type="password"
             value={password}
             onChange={e => setPassword(e.target.value)}
             placeholder="Enter your password"
-            style={{
-              width: '100%',
-              padding: '10px',
-              marginBottom: '12px',
-              border: '1px solid #aaa',
-              borderRadius: '4px'
-            }}
+            style={{ width: '100%', padding: '10px', marginBottom: '12px' }}
           />
-
           <button
             onClick={handleLogin}
             disabled={loading}
@@ -119,10 +102,8 @@ export default function LoginPage() {
               padding: '12px',
               backgroundColor: '#001F3F',
               color: 'white',
-              fontWeight: 'bold',
               border: 'none',
-              borderRadius: '4px',
-              cursor: 'pointer'
+              borderRadius: '4px'
             }}
           >
             {loading ? 'Logging in...' : 'Login'}
@@ -130,21 +111,14 @@ export default function LoginPage() {
         </>
       ) : (
         <>
-          <label style={{ fontWeight: 'bold' }}>MFA Code</label>
+          <label>Verification Code</label>
           <input
             type="text"
             value={mfaCode}
             onChange={e => setMfaCode(e.target.value)}
-            placeholder="Enter 6-digit MFA code"
-            style={{
-              width: '100%',
-              padding: '10px',
-              marginBottom: '12px',
-              border: '1px solid #aaa',
-              borderRadius: '4px'
-            }}
+            placeholder="Enter 6-digit verification code"
+            style={{ width: '100%', padding: '10px', marginBottom: '12px' }}
           />
-
           <button
             onClick={handleMfaVerify}
             disabled={loading}
@@ -153,13 +127,11 @@ export default function LoginPage() {
               padding: '12px',
               backgroundColor: '#0074D9',
               color: 'white',
-              fontWeight: 'bold',
               border: 'none',
-              borderRadius: '4px',
-              cursor: 'pointer'
+              borderRadius: '4px'
             }}
           >
-            {loading ? 'Verifying MFA...' : 'Verify MFA'}
+            {loading ? 'Verifying...' : 'Verify MFA'}
           </button>
         </>
       )}
@@ -168,4 +140,5 @@ export default function LoginPage() {
     </div>
   );
 }
+
 
