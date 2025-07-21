@@ -39,7 +39,6 @@ export default async function handler(req, res) {
 
     const record = userData.records[0];
     const fields = record.fields;
-
     const storedHash = fields["auth_token_key"];
 
     if (!storedHash) {
@@ -57,10 +56,8 @@ export default async function handler(req, res) {
     }
 
     console.log(`✅ Password match for ${email}`);
-
     const now = new Date().toISOString();
 
-    // PATCH Last Login back to Airtable
     const patchRes = await fetch(
       `https://api.airtable.com/v0/${baseId}/${tableName}/${record.id}`,
       {
@@ -70,9 +67,7 @@ export default async function handler(req, res) {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          fields: {
-            "Last Login": now,
-          },
+          fields: { "Last Login": now },
         }),
       }
     );
@@ -82,7 +77,6 @@ export default async function handler(req, res) {
       console.warn(`⚠️ Failed to update Last Login: ${patchError}`);
     }
 
-    // Log successful login attempt
     await logAttempt(loginLogTable, baseId, airtableApiKey, email, true, "Login success");
 
     return res.status(200).json({ message: "Login successful" });
@@ -93,7 +87,7 @@ export default async function handler(req, res) {
   }
 }
 
-// Logs login attempts to optional second Airtable table
+// Logs login attempts to Login Attempts table
 async function logAttempt(table, baseId, apiKey, email, success, notes) {
   try {
     const logRes = await fetch(`https://api.airtable.com/v0/${baseId}/${table}`, {
