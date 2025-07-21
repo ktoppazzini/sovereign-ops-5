@@ -1,3 +1,10 @@
+console.log("🔼 Submitting Login:");
+console.log("📧 Email:", email);
+console.log("🔑 Password:", password);
+console.log("👉 Target endpoint: /api/login"); // NOT /api/verify-mfa!
+
+
+
 // ✅ FILE: pages/api/login.js
 import bcrypt from "bcrypt";
 
