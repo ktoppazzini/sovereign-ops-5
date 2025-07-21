@@ -30,8 +30,9 @@ export default async function handler(req, res) {
     });
 
     const userData = await userRes.json();
+
     if (!userData.records || userData.records.length === 0) {
-      console.error(`❌ User not found: ${email}`);
+      console.error(`❌ No user found: ${email}`);
       await logAttempt(loginLogTable, baseId, airtableApiKey, email, false, "User not found");
       return res.status(401).json({ error: "Invalid credentials" });
     }
@@ -39,9 +40,11 @@ export default async function handler(req, res) {
     const record = userData.records[0];
     const fields = record.fields;
 
+    console.log("📦 Full Airtable fields object:", fields);
+
     const storedHash = fields["auth_token_key"];
     if (!storedHash) {
-      console.error("❌ Missing password hash");
+      console.error(`❌ Missing password hash for ${email}`);
       await logAttempt(loginLogTable, baseId, airtableApiKey, email, false, "Missing hash");
       return res.status(401).json({ error: "Invalid credentials" });
     }
@@ -54,8 +57,9 @@ export default async function handler(req, res) {
       return res.status(401).json({ error: "Invalid credentials" });
     }
 
-    const mfaVerified = fields["MFA Verified"];
-    console.log(`🧾 MFA Verified status for ${email}: ${mfaVerified}`);
+    // 🧾 Support both possible field names
+    const mfaVerified = fields["MFA Verified"] ?? fields["mfa_verified"];
+    console.log(`🧾 MFA Verified status for ${email}:`, mfaVerified);
 
     if (!mfaVerified) {
       await logAttempt(loginLogTable, baseId, airtableApiKey, email, false, "MFA not verified");
@@ -66,7 +70,7 @@ export default async function handler(req, res) {
     return res.status(200).json({ message: "Login successful" });
 
   } catch (err) {
-    console.error("🔥 Login error:", err);
+    console.error("🔥 Unexpected login error:", err);
     await logAttempt(loginLogTable, baseId, airtableApiKey, email, false, "Unexpected error");
     return res.status(500).json({ error: "Internal server error" });
   }
@@ -74,6 +78,7 @@ export default async function handler(req, res) {
 
 async function logAttempt(table, baseId, apiKey, email, success, notes) {
   const now = new Date().toISOString();
+
   const payload = {
     fields: {
       Email: email,
@@ -95,7 +100,7 @@ async function logAttempt(table, baseId, apiKey, email, success, notes) {
 
     if (!logRes.ok) {
       const err = await logRes.text();
-      console.warn("⚠️ Log error:", err);
+      console.warn(`⚠️ Logging failed: ${err}`);
     } else {
       console.log(`📝 Login attempt logged: ${email}`);
     }
