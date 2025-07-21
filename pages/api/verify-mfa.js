@@ -1,82 +1,76 @@
-import nodemailer from 'nodemailer';
-import twilio from 'twilio';
-
 export default async function handler(req, res) {
-  if (req.method !== 'POST') {
-    return res.status(405).json({ error: 'Method not allowed' });
+  if (req.method !== "POST") {
+    return res.status(405).json({ error: "Method not allowed" });
   }
 
   const { email, code } = req.body;
 
+  if (!email || !code) {
+    return res.status(400).json({ error: "Missing email or code" });
+  }
+
+  const airtableApiKey = process.env.AIRTABLE_API_KEY;
+  const baseId = process.env.AIRTABLE_BASE_ID;
+  const tableName = "Users";
+
   try {
-    const airtableApiKey = process.env.AIRTABLE_API_KEY;
-    const baseId = process.env.AIRTABLE_BASE_ID;
-    const tableName = 'Users';
+    const lowerEmail = email.toLowerCase();
+    const filterFormula = `LOWER({Email}) = "${lowerEmail}"`;
+    const userUrl = `https://api.airtable.com/v0/${baseId}/${tableName}?filterByFormula=${encodeURIComponent(filterFormula)}`;
 
-    const url = `https://api.airtable.com/v0/${baseId}/${tableName}?filterByFormula={Email}="${email}"`;
-
-    const response = await fetch(url, {
+    const userRes = await fetch(userUrl, {
       headers: {
         Authorization: `Bearer ${airtableApiKey}`,
-        'Content-Type': 'application/json',
+        "Content-Type": "application/json",
       },
     });
 
-    const data = await response.json();
+    const data = await userRes.json();
 
     if (!data.records || data.records.length === 0) {
-      console.log("❌ No user found for email:", email);
-      return res.status(404).json({ error: 'User not found' });
+      return res.status(404).json({ error: "User not found" });
     }
 
-    const user = data.records[0].fields;
-    const deliveryMethod = user['MFA Code'] || 'email';
-    const userPhone = user['Phone number']?.toString().replace(/\D/g, '');
-    const formattedPhone = `+1${userPhone}`;
-    const mfaCode = code || Math.floor(100000 + Math.random() * 900000).toString();
+    const userRecord = data.records[0];
+    const fields = userRecord.fields;
 
-    console.log("🧠 Delivery method:", deliveryMethod);
-    console.log("📤 Code to send:", mfaCode);
+    const storedCode = fields["mfa_code"];
+    const expiry = fields["mfa_code_expiry"];
+    const now = new Date();
 
-    if (deliveryMethod === 'SMS') {
-      try {
-        const client = twilio(process.env.TWILIO_SID, process.env.TWILIO_TOKEN);
+    if (!storedCode) {
+      return res.status(401).json({ error: "No code issued for this user." });
+    }
 
-        await client.messages.create({
-          body: `Your Sovereign OPS login code is: ${mfaCode}`,
-          from: process.env.TWILIO_PHONE,
-          to: formattedPhone,
-        });
+    if (code !== storedCode) {
+      return res.status(401).json({ error: "Invalid code." });
+    }
 
-        console.log("✅ SMS sent to", formattedPhone);
-        return res.status(200).json({ message: 'Check your texts for the verification code.' });
-      } catch (err) {
-        console.error('❌ SMS Error:', err);
-        return res.status(500).json({ error: 'Failed to send text message' });
+    if (expiry) {
+      const expiresAt = new Date(expiry);
+      if (now > expiresAt) {
+        return res.status(401).json({ error: "Code expired." });
       }
     }
 
-    // fallback to email
-    const transporter = nodemailer.createTransport({
-      service: 'gmail',
-      auth: {
-        user: process.env.EMAIL_FROM,
-        pass: process.env.EMAIL_PASSWORD,
+    // Update user as verified
+    const patchUrl = `https://api.airtable.com/v0/${baseId}/${tableName}/${userRecord.id}`;
+    await fetch(patchUrl, {
+      method: "PATCH",
+      headers: {
+        Authorization: `Bearer ${airtableApiKey}`,
+        "Content-Type": "application/json",
       },
+      body: JSON.stringify({
+        fields: {
+          mfa_verified: true,
+        },
+      }),
     });
 
-    await transporter.sendMail({
-      from: process.env.EMAIL_FROM,
-      to: email,
-      subject: 'Your Sovereign OPS Verification Code',
-      text: `Your code is: ${mfaCode}`,
-    });
-
-    console.log("✅ Email sent to", email);
-    return res.status(200).json({ message: 'Check your email for the verification code.' });
-
-  } catch (error) {
-    console.error('MFA error:', error);
-    return res.status(500).json({ error: 'Failed to send MFA code' });
+    return res.status(200).json({ message: "Verification successful." });
+  } catch (err) {
+    console.error("🔒 MFA Verification Error:", err);
+    return res.status(500).json({ error: "Internal server error" });
   }
 }
