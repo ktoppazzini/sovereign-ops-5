@@ -1,5 +1,4 @@
-// pages/api/verify-mfa.js
-
+pages/api/verify-mfa.js
 import nodemailer from 'nodemailer';
 import twilio from 'twilio';
 
@@ -8,22 +7,18 @@ export default async function handler(req, res) {
     return res.status(405).json({ error: 'Method not allowed' });
   }
 
-  const { email } = req.body;
-
-  if (!email) {
-    return res.status(400).json({ error: 'Missing email address' });
-  }
+  const { email, code } = req.body;
 
   try {
     const airtableApiKey = process.env.AIRTABLE_API_KEY;
     const baseId = process.env.AIRTABLE_BASE_ID;
     const tableName = 'Users';
 
-    const url = `https://api.airtable.com/v0/${baseId}/${tableName}?filterByFormula={Email}="${email}"`;
+    const url = https://api.airtable.com/v0/${baseId}/${tableName}?filterByFormula={Email}="${email}";
 
     const response = await fetch(url, {
       headers: {
-        Authorization: `Bearer ${airtableApiKey}`,
+        Authorization: Bearer ${airtableApiKey},
         'Content-Type': 'application/json',
       },
     });
@@ -34,35 +29,19 @@ export default async function handler(req, res) {
       return res.status(404).json({ error: 'User not found' });
     }
 
-    const record = data.records[0];
-    const user = record.fields;
+    const user = data.records[0].fields;
     const deliveryMethod = user['MFA Code'] || 'email';
     const userPhone = user['Phone number']?.toString().replace(/\D/g, '');
-    const formattedPhone = `+1${userPhone}`;
-    const mfaCode = Math.floor(100000 + Math.random() * 900000).toString();
-
-    // Save MFA code to Airtable
-    await fetch(`https://api.airtable.com/v0/${baseId}/${tableName}/${record.id}`, {
-      method: "PATCH",
-      headers: {
-        Authorization: `Bearer ${airtableApiKey}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        fields: {
-          "Last MFA Code": mfaCode,
-          "Code Timestamp": new Date().toISOString(),
-        }
-      }),
-    });
+    const formattedPhone = +1${userPhone};
+    const mfaCode = code || Math.floor(100000 + Math.random() * 900000).toString();
 
     if (deliveryMethod === 'SMS') {
       try {
         const client = twilio(process.env.TWILIO_SID, process.env.TWILIO_TOKEN);
 
         await client.messages.create({
-          body: `Your Sovereign OPS login code is: ${mfaCode}`,
-          from: process.env.TWILIO_PHONE,
+          body: Your Sovereign OPS login code is: ${mfaCode},
+          from: process.env.TWILIO_PHONE, // must be a purchased Twilio number
           to: formattedPhone,
         });
 
@@ -73,7 +52,7 @@ export default async function handler(req, res) {
       }
     }
 
-    // fallback or email delivery
+    // fallback or email preference
     const transporter = nodemailer.createTransport({
       service: 'gmail',
       auth: {
@@ -86,7 +65,7 @@ export default async function handler(req, res) {
       from: process.env.EMAIL_FROM,
       to: email,
       subject: 'Your Sovereign OPS Verification Code',
-      text: `Your code is: ${mfaCode}`,
+      text: Your code is: ${mfaCode},
     });
 
     return res.status(200).json({ message: 'Check your email for the verification code.' });
@@ -96,4 +75,5 @@ export default async function handler(req, res) {
     return res.status(500).json({ error: 'Failed to send MFA code' });
   }
 }
+
 
