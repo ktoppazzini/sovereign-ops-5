@@ -1,4 +1,10 @@
 import bcrypt from "bcrypt";
+import twilio from "twilio";
+
+const twilioClient = twilio(
+  process.env.TWILIO_ACCOUNT_SID,
+  process.env.TWILIO_AUTH_TOKEN
+);
 
 export default async function handler(req, res) {
   if (req.method !== "POST") {
@@ -6,9 +12,7 @@ export default async function handler(req, res) {
   }
 
   const { email, password } = req.body;
-
   if (!email || !password) {
-    console.warn("⚠️ Missing email or password");
     return res.status(400).json({ error: "Missing email or password" });
   }
 
@@ -19,9 +23,6 @@ export default async function handler(req, res) {
 
   try {
     const userUrl = `https://api.airtable.com/v0/${baseId}/${tableName}?filterByFormula={Email}="${email}"`;
-
-    console.log(`🔍 Fetching user: ${userUrl}`);
-
     const userRes = await fetch(userUrl, {
       headers: {
         Authorization: `Bearer ${airtableApiKey}`,
@@ -30,66 +31,78 @@ export default async function handler(req, res) {
     });
 
     const userData = await userRes.json();
-
     if (!userData.records || userData.records.length === 0) {
-      console.error(`❌ No user found: ${email}`);
       await logAttempt(loginLogTable, baseId, airtableApiKey, email, false, "User not found");
       return res.status(401).json({ error: "Invalid credentials" });
     }
 
     const record = userData.records[0];
     const fields = record.fields;
-
-    console.log("📦 Full Airtable fields object:", fields);
-
     const storedHash = fields["auth_token_key"];
+
     if (!storedHash) {
-      console.error(`❌ Missing password hash for ${email}`);
-      await logAttempt(loginLogTable, baseId, airtableApiKey, email, false, "Missing hash");
+      await logAttempt(loginLogTable, baseId, airtableApiKey, email, false, "Missing password hash");
       return res.status(401).json({ error: "Invalid credentials" });
     }
 
     const isMatch = await bcrypt.compare(password, storedHash);
-    console.log(`🔐 Password match result: ${isMatch}`);
-
     if (!isMatch) {
       await logAttempt(loginLogTable, baseId, airtableApiKey, email, false, "Password mismatch");
       return res.status(401).json({ error: "Invalid credentials" });
     }
 
-    // 🧾 Support both possible field names
-    const mfaVerified = fields["MFA Verified"] ?? fields["mfa_verified"];
-    console.log(`🧾 MFA Verified status for ${email}:`, mfaVerified);
+    // Generate MFA code
+    const verificationCode = Math.floor(100000 + Math.random() * 900000).toString();
+    const expiry = new Date(Date.now() + 10 * 60 * 1000).toISOString(); // 10 min from now
 
-    if (!mfaVerified) {
-      await logAttempt(loginLogTable, baseId, airtableApiKey, email, false, "MFA not verified");
-      return res.status(403).json({ error: "MFA not verified" });
+    // Send SMS
+    if (!fields["Phone number"]) {
+      return res.status(400).json({ error: "Missing phone number" });
     }
 
-    await logAttempt(loginLogTable, baseId, airtableApiKey, email, true, "Login successful");
-    return res.status(200).json({ message: "Login successful" });
+    await twilioClient.messages.create({
+      body: `Your Sovereign Ops verification code is: ${verificationCode}`,
+      from: process.env.TWILIO_PHONE_NUMBER,
+      to: fields["Phone number"],
+    });
+
+    // Update Airtable with code + expiry
+    await fetch(`https://api.airtable.com/v0/${baseId}/${tableName}/${record.id}`, {
+      method: "PATCH",
+      headers: {
+        Authorization: `Bearer ${airtableApiKey}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        fields: {
+          "MFA Temp": verificationCode,
+          "mfa_code_expiry": expiry,
+        },
+      }),
+    });
+
+    await logAttempt(loginLogTable, baseId, airtableApiKey, email, true, "MFA code sent");
+    return res.status(200).json({ message: "MFA code sent" });
 
   } catch (err) {
-    console.error("🔥 Unexpected login error:", err);
-    await logAttempt(loginLogTable, baseId, airtableApiKey, email, false, "Unexpected error");
+    console.error("🔥 Login error:", err);
+    await logAttempt(loginLogTable, baseId, process.env.AIRTABLE_API_KEY, email, false, "Unexpected login error");
     return res.status(500).json({ error: "Internal server error" });
   }
 }
 
 async function logAttempt(table, baseId, apiKey, email, success, notes) {
-  const now = new Date().toISOString();
-
   const payload = {
     fields: {
       Email: email,
       Status: success ? "Success" : "Fail",
       Notes: notes,
-      Timestamp: now,
+      Timestamp: new Date().toISOString(),
     },
   };
 
   try {
-    const logRes = await fetch(`https://api.airtable.com/v0/${baseId}/${table}`, {
+    await fetch(`https://api.airtable.com/v0/${baseId}/${table}`, {
       method: "POST",
       headers: {
         Authorization: `Bearer ${apiKey}`,
@@ -97,15 +110,7 @@ async function logAttempt(table, baseId, apiKey, email, success, notes) {
       },
       body: JSON.stringify(payload),
     });
-
-    if (!logRes.ok) {
-      const err = await logRes.text();
-      console.warn(`⚠️ Logging failed: ${err}`);
-    } else {
-      console.log(`📝 Login attempt logged: ${email}`);
-    }
   } catch (err) {
-    console.warn(`⚠️ Logging error (silent fail): ${err.message}`);
+    console.warn("⚠️ Silent logging error:", err.message);
   }
 }
-
