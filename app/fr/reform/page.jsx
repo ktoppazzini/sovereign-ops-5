@@ -3,7 +3,7 @@ import { useEffect, useState } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
 
-export default function ReformFormFR() {
+export default function ReformPageFR() {
   const [form, setForm] = useState({
     organization: '',
     country: '',
@@ -30,15 +30,15 @@ export default function ReformFormFR() {
       .then(res => res.json())
       .then(data => {
         setOptions({
-          countries: data.countries?.map(c => c.name_fr) || [],
-          sizes: data.sizes?.map(s => s.name) || [],
+          countries: data.countries?.map(c => c.name_fr || c.name) || [],
+          sizes: data.sizes?.map(s => s.name_fr || s.name) || [],
           tiers: data.tiers?.map(t => t.name_fr || t.name) || [],
           timeFrames: data.timeframes?.map(tf => tf.name_fr || tf.name) || [],
         });
       })
       .catch(err => {
-        console.error('Erreur de chargement:', err);
-        setMessage('⚠️ Échec du chargement des options.');
+        console.error('Erreur lors du chargement des options', err);
+        setMessage('⚠️ Impossible de charger les options.');
       });
   }, []);
 
@@ -65,62 +65,60 @@ export default function ReformFormFR() {
         setMessage(result.error || '❌ Une erreur est survenue.');
       }
     } catch (err) {
-      setMessage('❌ Erreur lors de la soumission.');
+      setMessage('❌ Erreur de soumission.');
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <div className="min-h-screen bg-gray-100 flex items-center justify-center py-10 px-4">
-      <div className="bg-white shadow-xl rounded-lg p-8 w-full max-w-2xl relative">
-        <div className="flex items-center justify-between mb-6">
-          <div className="flex items-center gap-2">
-            <Image src="/secure.png" alt="Sovereign Ops" width={32} height={32} />
-            <h1 className="text-lg font-bold text-blue-900">Sovereign Ops™</h1>
-          </div>
-          <Link href="/en/reform" className="text-blue-600 font-semibold hover:underline">EN</Link>
+    <div className="min-h-screen bg-gray-100 flex items-center justify-center px-4 py-10">
+      <div className="bg-white shadow-md rounded-lg p-6 w-full max-w-md font-sans">
+        <div className="flex justify-center mb-6">
+          <Image src="/secure.png" alt="Sovereign Ops" width={40} height={40} />
         </div>
 
-        <h2 className="text-2xl font-bold mb-6 text-center text-gray-800">Générateur de Rapport de Réforme</h2>
+        <h2 className="text-xl font-bold text-center mb-6 text-gray-800">🔐 Générateur de Réforme</h2>
 
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <Input label="Nom de l’organisation" name="organization" value={form.organization} onChange={handleChange} />
-
-          <Select label="Pays" name="country" value={form.country} onChange={handleChange} options={options.countries} />
-          <Select label="Taille de l’entreprise" name="size" value={form.size} onChange={handleChange} options={options.sizes} />
-          <Select label="Forfait" name="tier" value={form.tier} onChange={handleChange} options={options.tiers} />
-          <Select label="Échéancier" name="timeFrame" value={form.timeFrame} onChange={handleChange} options={options.timeFrames} />
-
+        <form onSubmit={handleSubmit}>
+          <Field label="Nom de l’organisation" name="organization" value={form.organization} onChange={handleChange} />
+          <Dropdown label="Pays" name="country" value={form.country} onChange={handleChange} options={options.countries} />
+          <Dropdown label="Taille de l’entreprise" name="size" value={form.size} onChange={handleChange} options={options.sizes} />
+          <Dropdown label="Forfait" name="tier" value={form.tier} onChange={handleChange} options={options.tiers} />
+          <Dropdown label="Échéancier" name="timeFrame" value={form.timeFrame} onChange={handleChange} options={options.timeFrames} />
           <TextArea label="Résultat souhaité" name="outcome" value={form.outcome} onChange={handleChange} />
-          <Input label="Objectif d’économies" name="savings" value={form.savings} onChange={handleChange} />
+          <Field label="Objectif d’économies" name="savings" value={form.savings} onChange={handleChange} />
           <TextArea label="Objectifs stratégiques" name="goals" value={form.goals} onChange={handleChange} />
 
           <button
             type="submit"
             disabled={loading}
-            className="w-full py-3 px-6 bg-blue-900 text-white font-semibold rounded hover:bg-blue-800 transition"
+            className="w-full mt-4 py-2 bg-[#001F3F] text-white font-bold rounded hover:bg-blue-800 transition"
           >
-            {loading ? 'Génération en cours...' : 'Générer le rapport'}
+            {loading ? 'Soumission...' : 'Générer le rapport'}
           </button>
         </form>
 
         {message && <p className="mt-4 text-center text-sm text-gray-700">{message}</p>}
+
+        <div className="text-center mt-6">
+          <Link href="/en/reform" className="text-blue-600 text-sm underline">English</Link>
+        </div>
       </div>
     </div>
   );
 }
 
-// Reusable input components
-function Input({ label, name, value, onChange }) {
+// Styled reusable components
+function Field({ label, name, value, onChange }) {
   return (
-    <div>
+    <div className="mb-3">
       <label className="block font-medium mb-1">{label}</label>
       <input
-        type="text"
         name={name}
         value={value}
         onChange={onChange}
+        type="text"
         className="w-full border border-gray-300 rounded px-3 py-2"
         required
       />
@@ -130,7 +128,7 @@ function Input({ label, name, value, onChange }) {
 
 function TextArea({ label, name, value, onChange }) {
   return (
-    <div>
+    <div className="mb-3">
       <label className="block font-medium mb-1">{label}</label>
       <textarea
         name={name}
@@ -144,9 +142,9 @@ function TextArea({ label, name, value, onChange }) {
   );
 }
 
-function Select({ label, name, value, onChange, options }) {
+function Dropdown({ label, name, value, onChange, options }) {
   return (
-    <div>
+    <div className="mb-3">
       <label className="block font-medium mb-1">{label}</label>
       <select
         name={name}
@@ -156,13 +154,10 @@ function Select({ label, name, value, onChange, options }) {
         required
       >
         <option value="">-- Sélectionner --</option>
-        {options?.map((opt, idx) => (
-          <option key={idx} value={opt}>{opt}</option>
+        {options.map((opt, i) => (
+          <option key={i} value={opt}>{opt}</option>
         ))}
       </select>
     </div>
   );
 }
-
-
-
