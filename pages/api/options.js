@@ -7,22 +7,27 @@ export default async function handler(req, res) {
     const headers = {
       Authorization: `Bearer ${apiKey}`,
     };
-    const response = await fetch(url, { headers });
-    const data = await response.json();
-    return data.records.map(rec => rec.fields.Name || rec.fields.Label || rec.fields.Value);
+
+    try {
+      const response = await fetch(url, { headers });
+      const data = await response.json();
+      return data.records.map(rec => rec.fields.Name?.trim() || rec.fields.Label || '');
+    } catch (error) {
+      console.error(`Error fetching ${tableName}:`, error);
+      return [];
+    }
   };
 
   try {
     const [countries, sizes, tiers] = await Promise.all([
-      fetchTable('Countries'),
-      fetchTable('Company Sizes'),
-      fetchTable('Tiers'),
+      fetchTable("Countries"),
+      fetchTable("Company Sizes"),
+      fetchTable("Tiers"),
     ]);
 
     res.status(200).json({ countries, sizes, tiers });
-  } catch (err) {
-    console.error('Airtable fetch failed:', err);
-    res.status(500).json({ error: 'Failed to fetch options' });
+  } catch (error) {
+    console.error("Global fetch error:", error);
+    res.status(500).json({ error: "Failed to load Airtable options." });
   }
 }
-
