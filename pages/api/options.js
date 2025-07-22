@@ -1,39 +1,38 @@
+// pages/api/options.js
 export default async function handler(req, res) {
-  const apiKey = process.env.AIRTABLE_API_KEY;
-  const baseId = process.env.AIRTABLE_BASE_ID;
+  const { AIRTABLE_API_KEY, AIRTABLE_BASE_ID } = process.env;
 
-  const fetchOptions = async (table, field) => {
-    const url = `https://api.airtable.com/v0/${baseId}/${table}`;
-    const headers = { Authorization: `Bearer ${apiKey}` };
-
-    try {
-      const response = await fetch(url, { headers });
-      const data = await response.json();
-      return data.records.map(record => record.fields[field]?.trim() || '');
-    } catch (err) {
-      console.error(`❌ Error loading ${table}.${field}:`, err);
-      return [];
-    }
+  const endpoints = {
+    countries: 'Countries',
+    sizes: 'Company Sizes',
+    tiers: 'Tiers',
+    timeframes: 'Time Frames',
   };
 
   try {
-    const [countries, countriesFR, sizes, tiers, tiersFR, timeFrames, timeFramesFR] = await Promise.all([
-      fetchOptions("Countries", "Country"),
-      fetchOptions("Countries", "Country Name FR"),
-      fetchOptions("Company Sizes", "Name"),
-      fetchOptions("Tiers", "Tier Name"),
-      fetchOptions("Tiers", "Tier Name FR"),
-      fetchOptions("Time Frames", "Time Frame"),
-      fetchOptions("Time Frames", "Time Frame FR"),
-    ]);
+    const results = await Promise.all(
+      Object.entries(endpoints).map(async ([key, table]) => {
+        const url = `https://api.airtable.com/v0/${AIRTABLE_BASE_ID}/${table}`;
+        const airtableRes = await fetch(url, {
+          headers: { Authorization: `Bearer ${AIRTABLE_API_KEY}` }
+        });
+        const data = await airtableRes.json();
+        return [key, data.records];
+      })
+    );
 
-    res.status(200).json({
-      en: { countries, sizes, tiers, timeFrames },
-      fr: { countries: countriesFR, sizes, tiers: tiersFR, timeFrames: timeFramesFR },
-    });
+    const formatted = Object.fromEntries(results.map(([key, records]) => [
+      key,
+      records.map(r => ({
+        id: r.id,
+        name: r.fields[key === "countries" ? "Country" : key === "tiers" ? "Tier Name" : "Name"],
+        name_fr: r.fields[key === "countries" ? "Country Name FR" : key === "timeframes" ? "Time Frame FR" : "Name FR"]
+      }))
+    ]));
+
+    res.status(200).json(formatted);
   } catch (err) {
-    console.error("🔥 Global options fetch failed:", err);
-    res.status(500).json({ error: "Unable to load dropdown options" });
+    console.error("Error fetching options:", err);
+    res.status(500).json({ error: "Failed to fetch options." });
   }
 }
-
