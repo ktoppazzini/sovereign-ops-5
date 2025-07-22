@@ -1,10 +1,7 @@
 'use client';
 import { useEffect, useState } from 'react';
-import { useRouter } from 'next/navigation';
 
 export default function ReformFormEN() {
-  const router = useRouter();
-
   const [form, setForm] = useState({
     organization: '',
     country: '',
@@ -23,10 +20,10 @@ export default function ReformFormEN() {
     fetch('/api/options')
       .then(res => res.json())
       .then(data => setOptions(data))
-      .catch(err => console.error('Failed to load options', err));
+      .catch(() => setSuccess("⚠️ Error loading dropdown options."));
   }, []);
 
-  const handleChange = e => {
+  const handleChange = (e) => {
     setForm({ ...form, [e.target.name]: e.target.value });
   };
 
@@ -44,7 +41,7 @@ export default function ReformFormEN() {
       if (res.ok) {
         setSuccess('✅ Report submitted successfully.');
       } else {
-        setSuccess(result.error || '❌ Something went wrong.');
+        setSuccess(result.error || '❌ Error submitting form.');
       }
     } catch (err) {
       console.error(err);
@@ -55,60 +52,48 @@ export default function ReformFormEN() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-100 p-4">
-      <div className="max-w-xl mx-auto bg-white p-6 rounded shadow">
+    <div className="min-h-screen bg-gray-100 py-10 px-4">
+      <div className="max-w-xl mx-auto bg-white shadow-lg rounded-lg p-6">
         <div className="flex justify-between items-center mb-4">
           <img src="/secure.png" alt="Sovereign Ops" className="h-10" />
-          <a href="/fr/reform" className="text-blue-600 hover:underline">FR</a>
+          <a href="/fr/reform" className="text-blue-600 font-semibold hover:underline">FR</a>
         </div>
 
-        <h2 className="text-xl font-bold mb-4">Reform Report Generator</h2>
+        <h1 className="text-2xl font-bold mb-6">Reform Report Generator</h1>
 
-        <label className="block mb-2 font-semibold">Organization Name</label>
-        <input name="organization" onChange={handleChange} className="w-full mb-4 p-2 border rounded" />
-
-        <label className="block mb-2 font-semibold">Country</label>
-        <select name="country" onChange={handleChange} className="w-full mb-4 p-2 border rounded">
-          <option value="">-- Select --</option>
-          {options.countries.map(c => (
-            <option key={c} value={c}>{c}</option>
-          ))}
-        </select>
-
-        <label className="block mb-2 font-semibold">Company Size</label>
-        <select name="size" onChange={handleChange} className="w-full mb-4 p-2 border rounded">
-          <option value="">-- Select --</option>
-          {options.sizes.map(s => (
-            <option key={s} value={s}>{s}</option>
-          ))}
-        </select>
-
-        <label className="block mb-2 font-semibold">Tier</label>
-        <select name="tier" onChange={handleChange} className="w-full mb-4 p-2 border rounded">
-          <option value="">-- Select --</option>
-          {options.tiers.map(t => (
-            <option key={t} value={t}>{t}</option>
-          ))}
-        </select>
-
-        <label className="block mb-2 font-semibold">Desired Outcome</label>
-        <textarea name="outcome" onChange={handleChange} rows={2} className="w-full mb-4 p-2 border rounded" />
-
-        <label className="block mb-2 font-semibold">Cost Savings Goal</label>
-        <input name="savings" onChange={handleChange} className="w-full mb-4 p-2 border rounded" />
-
-        <label className="block mb-2 font-semibold">Strategic Goals</label>
-        <textarea name="goals" onChange={handleChange} rows={3} className="w-full mb-4 p-2 border rounded" />
+        {[
+          { label: "Organization Name", name: "organization", type: "text" },
+          { label: "Country", name: "country", type: "select", options: options.countries },
+          { label: "Company Size", name: "size", type: "select", options: options.sizes },
+          { label: "Tier", name: "tier", type: "select", options: options.tiers },
+          { label: "Desired Outcome", name: "outcome", type: "textarea" },
+          { label: "Cost Savings Goal", name: "savings", type: "text" },
+          { label: "Strategic Goals", name: "goals", type: "textarea" }
+        ].map(({ label, name, type, options }) => (
+          <div className="mb-4" key={name}>
+            <label className="block font-medium mb-1">{label}</label>
+            {type === "select" ? (
+              <select name={name} onChange={handleChange} className="w-full p-2 border rounded">
+                <option value="">-- Select --</option>
+                {options?.map((opt, idx) => <option key={idx} value={opt}>{opt}</option>)}
+              </select>
+            ) : type === "textarea" ? (
+              <textarea name={name} onChange={handleChange} rows={3} className="w-full p-2 border rounded" />
+            ) : (
+              <input type={type} name={name} onChange={handleChange} className="w-full p-2 border rounded" />
+            )}
+          </div>
+        ))}
 
         <button
           onClick={handleSubmit}
           disabled={loading}
-          className="w-full bg-blue-900 text-white py-2 font-semibold rounded hover:bg-blue-800"
+          className="w-full bg-blue-900 text-white py-2 mt-2 rounded hover:bg-blue-800 transition"
         >
           {loading ? 'Generating...' : 'Generate Report'}
         </button>
 
-        {success && <p className="mt-4 text-center text-green-600">{success}</p>}
+        {success && <p className="mt-4 text-green-700 text-center">{success}</p>}
       </div>
     </div>
   );
