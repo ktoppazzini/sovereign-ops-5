@@ -75,5 +75,97 @@ export default function ReformFormFR() {
     <div className="min-h-screen bg-gray-100 flex items-center justify-center py-10 px-4">
       <div className="bg-white shadow-xl rounded-lg p-8 w-full max-w-2xl relative">
         {/* Header */}
-        <div className="flex items-center justify-between mb-6"
+        <div className="flex items-center justify-between mb-6">
+          <div className="flex items-center gap-2">
+            <Image src="/secure.png" alt="Sovereign Ops" width={32} height={32} />
+            <h1 className="text-lg font-bold text-blue-900">Sovereign Ops™</h1>
+          </div>
+          <Link href="/en/reform" className="text-blue-600 font-semibold hover:underline">EN</Link>
+        </div>
+
+        {/* Title */}
+        <h2 className="text-2xl font-bold mb-6 text-center text-gray-800">Générateur de Rapport de Réforme</h2>
+
+        {/* Form */}
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <Input label="Nom de l’organisation" name="organization" value={form.organization} onChange={handleChange} />
+
+          <Select label="Pays" name="country" value={form.country} onChange={handleChange} options={options.countries} />
+          <Select label="Taille de l’entreprise" name="size" value={form.size} onChange={handleChange} options={options.sizes} />
+          <Select label="Niveau" name="tier" value={form.tier} onChange={handleChange} options={options.tiers} />
+          <Select label="Délai" name="timeFrame" value={form.timeFrame} onChange={handleChange} options={options.timeFrames} />
+
+          <TextArea label="Résultat souhaité" name="outcome" value={form.outcome} onChange={handleChange} />
+          <Input label="Objectif d’économie" name="savings" value={form.savings} onChange={handleChange} />
+          <TextArea label="Objectifs stratégiques" name="goals" value={form.goals} onChange={handleChange} />
+
+          <button
+            type="submit"
+            disabled={loading}
+            className="w-full py-3 px-6 bg-blue-900 text-white font-semibold rounded hover:bg-blue-800 transition"
+          >
+            {loading ? 'Génération...' : 'Générer le Rapport'}
+          </button>
+        </form>
+
+        {/* Feedback */}
+        {message && <p className="mt-4 text-center text-sm text-gray-700">{message}</p>}
+      </div>
+    </div>
+  );
+}
+
+// Subcomponents for reuse
+function Input({ label, name, value, onChange }) {
+  return (
+    <div>
+      <label className="block font-medium mb-1">{label}</label>
+      <input
+        type="text"
+        name={name}
+        value={value}
+        onChange={onChange}
+        className="w-full border border-gray-300 rounded px-3 py-2"
+        required
+      />
+    </div>
+  );
+}
+
+function TextArea({ label, name, value, onChange }) {
+  return (
+    <div>
+      <label className="block font-medium mb-1">{label}</label>
+      <textarea
+        name={name}
+        value={value}
+        onChange={onChange}
+        rows={3}
+        className="w-full border border-gray-300 rounded px-3 py-2"
+        required
+      />
+    </div>
+  );
+}
+
+function Select({ label, name, value, onChange, options }) {
+  return (
+    <div>
+      <label className="block font-medium mb-1">{label}</label>
+      <select
+        name={name}
+        value={value}
+        onChange={onChange}
+        className="w-full border border-gray-300 rounded px-3 py-2"
+        required
+      >
+        <option value="">-- Sélectionner --</option>
+        {options?.map((opt, idx) => (
+          <option key={idx} value={opt}>{opt}</option>
+        ))}
+      </select>
+    </div>
+  );
+}
+
 
