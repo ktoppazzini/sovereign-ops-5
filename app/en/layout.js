@@ -1,4 +1,4 @@
-import '../../globals.css';
+import '../globals.css';  
 import Image from 'next/image';
 import logo from '/public/logo.png'; // Ensure logo.png exists in /public
 
