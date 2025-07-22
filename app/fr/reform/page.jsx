@@ -1,116 +1,87 @@
 'use client';
 import { useEffect, useState } from 'react';
-import { useRouter } from 'next/navigation';
 
-export default function ReformFormFR() {
-  const router = useRouter();
-
+export default function ReformFR() {
   const [form, setForm] = useState({
-    organization: '',
-    country: '',
-    size: '',
-    tier: '',
-    outcome: '',
-    savings: '',
-    goals: '',
+    organization: '', country: '', size: '', tier: '', timeFrame: '', outcome: '', savings: '', goals: '',
   });
-
-  const [options, setOptions] = useState({ countries: [], sizes: [], tiers: [] });
+  const [options, setOptions] = useState({ countries: [], sizes: [], tiers: [], timeFrames: [] });
   const [loading, setLoading] = useState(false);
-  const [success, setSuccess] = useState('');
+  const [msg, setMsg] = useState('');
 
   useEffect(() => {
     fetch('/api/options')
       .then(res => res.json())
-      .then(data => setOptions(data))
-      .catch(err => console.error('Erreur chargement des options', err));
+      .then(data => setOptions(data.fr))
+      .catch(() => setMsg("Erreur de chargement"));
   }, []);
 
-  const handleChange = e => {
-    setForm({ ...form, [e.target.name]: e.target.value });
-  };
+  const handleChange = e => setForm({ ...form, [e.target.name]: e.target.value });
 
   const handleSubmit = async () => {
     setLoading(true);
-    setSuccess('');
+    setMsg('');
     try {
       const res = await fetch('/api/generate-report', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(form),
       });
-
       const result = await res.json();
-      if (res.ok) {
-        setSuccess('✅ Rapport soumis avec succès.');
-      } else {
-        setSuccess(result.error || '❌ Une erreur est survenue.');
-      }
+      setMsg(res.ok ? '✅ Rapport généré.' : result.error || 'Erreur de génération.');
     } catch (err) {
-      console.error(err);
-      setSuccess('❌ Échec de l’envoi.');
+      setMsg('❌ Erreur de soumission.');
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <div className="min-h-screen bg-gray-100 p-4">
-      <div className="max-w-xl mx-auto bg-white p-6 rounded shadow">
+    <div className="min-h-screen bg-gray-100 py-10 px-4">
+      <div className="max-w-2xl mx-auto bg-white shadow-md rounded-lg p-6">
         <div className="flex justify-between items-center mb-4">
           <img src="/secure.png" alt="Sovereign Ops" className="h-10" />
-          <a href="/en/reform" className="text-blue-600 hover:underline">EN</a>
+          <a href="/en/reform" className="text-blue-600 font-bold hover:underline">EN</a>
         </div>
 
-        <h2 className="text-xl font-bold mb-4">Générateur de Rapport de Réforme</h2>
+        <h1 className="text-2xl font-bold mb-6 text-center">Générateur de Rapport de Réforme</h1>
 
-        <label className="block mb-2 font-semibold">Nom de l’organisation</label>
-        <input name="organization" onChange={handleChange} className="w-full mb-4 p-2 border rounded" />
-
-        <label className="block mb-2 font-semibold">Pays</label>
-        <select name="country" onChange={handleChange} className="w-full mb-4 p-2 border rounded">
-          <option value="">-- Sélectionner --</option>
-          {options.countries.map(c => (
-            <option key={c} value={c}>{c}</option>
-          ))}
-        </select>
-
-        <label className="block mb-2 font-semibold">Taille de l’entreprise</label>
-        <select name="size" onChange={handleChange} className="w-full mb-4 p-2 border rounded">
-          <option value="">-- Sélectionner --</option>
-          {options.sizes.map(s => (
-            <option key={s} value={s}>{s}</option>
-          ))}
-        </select>
-
-        <label className="block mb-2 font-semibold">Forfait</label>
-        <select name="tier" onChange={handleChange} className="w-full mb-4 p-2 border rounded">
-          <option value="">-- Sélectionner --</option>
-          {options.tiers.map(t => (
-            <option key={t} value={t}>{t}</option>
-          ))}
-        </select>
-
-        <label className="block mb-2 font-semibold">Résultat souhaité</label>
-        <textarea name="outcome" onChange={handleChange} rows={2} className="w-full mb-4 p-2 border rounded" />
-
-        <label className="block mb-2 font-semibold">Objectif d’économies</label>
-        <input name="savings" onChange={handleChange} className="w-full mb-4 p-2 border rounded" />
-
-        <label className="block mb-2 font-semibold">Objectifs stratégiques</label>
-        <textarea name="goals" onChange={handleChange} rows={3} className="w-full mb-4 p-2 border rounded" />
+        {[
+          ['organization', 'Nom de l’organisation'],
+          ['country', 'Pays', options.countries],
+          ['size', 'Taille de l’entreprise', options.sizes],
+          ['tier', 'Forfait', options.tiers],
+          ['timeFrame', 'Échéance', options.timeFrames],
+          ['outcome', 'Résultat souhaité'],
+          ['savings', 'Objectif d’économies'],
+          ['goals', 'Objectifs stratégiques']
+        ].map(([name, label, opts]) => (
+          <div key={name} className="mb-4">
+            <label className="block font-medium mb-1">{label}</label>
+            {opts ? (
+              <select name={name} onChange={handleChange} className="w-full border p-2 rounded">
+                <option value="">-- Choisir --</option>
+                {opts.map((opt, i) => <option key={i} value={opt}>{opt}</option>)}
+              </select>
+            ) : (
+              <input name={name} type={name === 'goals' || name === 'outcome' ? 'textarea' : 'text'}
+                     className="w-full border p-2 rounded"
+                     onChange={handleChange} />
+            )}
+          </div>
+        ))}
 
         <button
           onClick={handleSubmit}
           disabled={loading}
-          className="w-full bg-blue-900 text-white py-2 font-semibold rounded hover:bg-blue-800"
-        >
-          {loading ? 'Génération en cours...' : 'Générer le rapport'}
+          className="w-full bg-blue-900 text-white py-2 rounded hover:bg-blue-800 transition">
+          {loading ? 'Soumission...' : 'Générer le rapport'}
         </button>
 
-        {success && <p className="mt-4 text-center text-green-600">{success}</p>}
+        {msg && <p className="mt-4 text-center text-sm text-gray-700">{msg}</p>}
       </div>
     </div>
   );
 }
+
 
